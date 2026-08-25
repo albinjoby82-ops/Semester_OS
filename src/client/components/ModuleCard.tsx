@@ -14,7 +14,13 @@ const PROFILE_LABEL: Record<ModuleView["assessmentProfile"], string> = {
 /** Default target used for the required-mark line until targets are editable. */
 const TARGET = 60;
 
-export function ModuleCard({ module }: { module: ModuleView }) {
+export function ModuleCard({
+  module,
+  onOpen,
+}: {
+  module: ModuleView;
+  onOpen?: () => void;
+}) {
   const color = colorFor(module.colorToken);
   const g = module.gradeSummary;
 
@@ -29,7 +35,12 @@ export function ModuleCard({ module }: { module: ModuleView }) {
     g.gradedCount > 0 ? requiredMarkForTarget(g, TARGET) : null;
 
   return (
-    <article className="module-card rounded-md border border-[var(--color-border)]">
+    <button
+      type="button"
+      onClick={onOpen}
+      className="module-card w-full text-left rounded-md border border-[var(--color-border)]"
+      aria-label={`Open ${module.code}: ${module.name}`}
+    >
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="font-mono text-sm font-semibold" style={{ color }}>
           {module.code}
@@ -118,6 +129,10 @@ export function ModuleCard({ module }: { module: ModuleView }) {
           Lecture attendance is mandatory.
         </p>
       )}
-    </article>
+
+      <p className="mt-4 text-[11px] font-semibold text-[var(--color-accent)]">
+        Open module <span aria-hidden>→</span>
+      </p>
+    </button>
   );
 }

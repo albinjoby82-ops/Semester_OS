@@ -662,7 +662,11 @@ export function App() {
             <Section title="Modules">
               <div className="grid gap-3 sm:grid-cols-2">
                 {modules.map((module) => (
-                  <ModuleCard key={module.id} module={module} />
+                  <ModuleCard
+                    key={module.id}
+                    module={module}
+                    onOpen={() => navigate({ name: "module", code: module.code })}
+                  />
                 ))}
               </div>
 
