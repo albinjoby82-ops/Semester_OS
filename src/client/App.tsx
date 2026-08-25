@@ -369,11 +369,11 @@ export function App() {
   );
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-8 sm:py-10">
+      <header className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--color-border)] bg-white/80 px-4 py-3 shadow-[0_10px_30px_rgba(63,82,70,0.05)] backdrop-blur sm:px-5">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-            Semester OS
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--color-fg)] sm:text-2xl">
+            Semester <span className="text-[var(--color-accent)]">OS</span>
           </h1>
           <p className="mt-0.5 text-sm text-[var(--color-muted)]">
             {CURRENT_TERM.label}
@@ -382,13 +382,13 @@ export function App() {
               : " · outside teaching weeks"}
           </p>
         </div>
-        <nav className="flex items-center gap-3 text-sm">
+        <nav className="order-3 flex w-full items-center gap-1 border-t border-[var(--color-border)] pt-3 text-sm sm:order-none sm:w-auto sm:border-0 sm:pt-0">
           <a
             {...linkProps({ name: "today" }, navigate)}
             className={
               route.name === "today"
-                ? "text-[var(--color-fg)]"
-                : "text-[var(--color-muted)] hover:text-[var(--color-fg)]"
+                ? "rounded-full bg-[#eaf3ed] px-3 py-1.5 font-medium text-[var(--color-accent)]"
+                : "rounded-full px-3 py-1.5 text-[var(--color-muted)] hover:bg-[#f0f4ef] hover:text-[var(--color-fg)]"
             }
           >
             Today
@@ -397,8 +397,8 @@ export function App() {
             {...linkProps({ name: "assessments" }, navigate)}
             className={
               route.name === "assessments"
-                ? "text-[var(--color-fg)]"
-                : "text-[var(--color-muted)] hover:text-[var(--color-fg)]"
+                ? "rounded-full bg-[#eaf3ed] px-3 py-1.5 font-medium text-[var(--color-accent)]"
+                : "rounded-full px-3 py-1.5 text-[var(--color-muted)] hover:bg-[#f0f4ef] hover:text-[var(--color-fg)]"
             }
           >
             Assessments
@@ -407,8 +407,8 @@ export function App() {
             {...linkProps({ name: "settings" }, navigate)}
             className={
               route.name === "settings"
-                ? "text-[var(--color-fg)]"
-                : "text-[var(--color-muted)] hover:text-[var(--color-fg)]"
+                ? "rounded-full bg-[#eaf3ed] px-3 py-1.5 font-medium text-[var(--color-accent)]"
+                : "rounded-full px-3 py-1.5 text-[var(--color-muted)] hover:bg-[#f0f4ef] hover:text-[var(--color-fg)]"
             }
           >
             Settings
@@ -417,8 +417,8 @@ export function App() {
             {...linkProps({ name: "glance" }, navigate)}
             className={
               route.name === "glance"
-                ? "text-[var(--color-fg)]"
-                : "text-[var(--color-muted)] hover:text-[var(--color-fg)]"
+                ? "rounded-full bg-[#eaf3ed] px-3 py-1.5 font-medium text-[var(--color-accent)]"
+                : "rounded-full px-3 py-1.5 text-[var(--color-muted)] hover:bg-[#f0f4ef] hover:text-[var(--color-fg)]"
             }
           >
             Glance
@@ -427,7 +427,7 @@ export function App() {
 
         <button
           onClick={() => setCapturing(true)}
-          className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm hover:border-[var(--color-accent)]"
+          className="rounded-full border border-[#cfe0d4] bg-[#edf6ef] px-4 py-2 text-sm font-medium text-[#4f7f68] shadow-sm hover:border-[var(--color-accent)] hover:bg-[#e3f0e7]"
         >
           + Quick task{" "}
           <kbd className="ml-1 rounded bg-[var(--color-bg)] px-1 text-[10px] text-[var(--color-muted)]">
