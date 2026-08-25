@@ -6,6 +6,8 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite build && wrangler dev",
+    "check:deploy": "node scripts/check-deploy.mjs",
+    "predeploy": "npm run check:deploy",
     "deploy": "vite build && wrangler deploy",
     "test": "vitest run",
     "test:watch": "vitest",

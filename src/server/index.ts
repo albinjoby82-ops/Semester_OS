@@ -11,6 +11,8 @@ import { assignmentsRoute } from "./routes/assignments";
 import { nextRoute } from "./routes/next";
 import { googleRoute } from "./routes/google";
 import { whatsappRoute } from "./routes/whatsapp";
+import { getAccessToken, readConfig } from "./services/google-auth";
+import { syncGoogleCalendar } from "./services/google-calendar";
 
 export interface Env {
   DB: D1Database;
@@ -82,12 +84,29 @@ export default {
   fetch: app.fetch,
 
   /**
-   * Cron entrypoint. Nightly recompute keeps debt and capacity current without
-   * the user maintaining anything; the Sunday run generates Plan Week.
+   * Capacity and debt are derived live, so there is no stale aggregate to
+   * recompute. The scheduled work is keeping the optional Calendar mirror
+   * fresh, which keeps availability accurate even when the app is unopened.
    */
   async scheduled(event: ScheduledController, env: Env) {
     const db = drizzle(env.DB, { schema });
-    // Wired up in Step 4 (debt/capacity) and the Plan Week flow.
-    console.log("scheduled run", event.cron, { hasDb: Boolean(db) });
+    const config = readConfig(env);
+    if (!config) {
+      console.log("scheduled run skipped: Google is not configured", event.cron);
+      return;
+    }
+
+    const token = await getAccessToken(db, config);
+    if (!token) {
+      console.log("scheduled run skipped: Google is not connected", event.cron);
+      return;
+    }
+
+    try {
+      const result = await syncGoogleCalendar(db, token);
+      console.log("scheduled calendar sync complete", { cron: event.cron, ...result });
+    } catch (cause) {
+      console.error("scheduled calendar sync failed", cause);
+    }
   },
 } satisfies ExportedHandler<Env>;

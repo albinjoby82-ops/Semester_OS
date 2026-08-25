@@ -12,7 +12,7 @@ import {
   readConfig,
   recordSync,
 } from "../services/google-auth";
-import { normaliseEvent, type GoogleEvent } from "../../shared/calendar";
+import { syncGoogleCalendar } from "../services/google-calendar";
 import {
   escapeDriveQuery,
   FOLDER_MIME,
@@ -118,87 +118,16 @@ googleRoute.post("/calendar/sync", async (c) => {
 
   const daysBack = Number(c.req.query("daysBack") ?? 14);
   const daysAhead = Number(c.req.query("daysAhead") ?? 120);
-  const timeMin = new Date(Date.now() - daysBack * 86_400_000).toISOString();
-  const timeMax = new Date(Date.now() + daysAhead * 86_400_000).toISOString();
-
-  const moduleRows = await db.select().from(modules);
-  const matchable = moduleRows.map((m) => ({
-    id: m.id,
-    code: m.code,
-    name: m.name,
-  }));
-
-  let pageToken: string | undefined;
-  let imported = 0;
-  let skipped = 0;
-  // Bound the paging so a pathological calendar cannot loop forever.
-  for (let page = 0; page < 10; page += 1) {
-    const params = new URLSearchParams({
-      timeMin,
-      timeMax,
-      singleEvents: "true",
-      orderBy: "startTime",
-      maxResults: "250",
-    });
-    if (pageToken) params.set("pageToken", pageToken);
-
-    const response = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
-      { headers: { Authorization: `Bearer ${auth.token}` } },
+  try {
+    return c.json(
+      await syncGoogleCalendar(db, auth.token, { daysBack, daysAhead }),
     );
-
-    if (!response.ok) {
-      const body = await response.text();
-      return c.json(
-        { error: `Calendar request failed (${response.status})`, detail: body.slice(0, 300) },
-        502,
-      );
-    }
-
-    const payload = (await response.json()) as {
-      items?: GoogleEvent[];
-      nextPageToken?: string;
-    };
-
-    for (const item of payload.items ?? []) {
-      const normalised = normaliseEvent(item, matchable);
-      if (!normalised) {
-        skipped += 1;
-        continue;
-      }
-      await db
-        .insert(calendarEvents)
-        .values({
-          id: newId(),
-          googleEventId: normalised.googleEventId,
-          title: normalised.title,
-          startAt: normalised.startAt,
-          endAt: normalised.endAt,
-          isAllDay: normalised.isAllDay,
-          moduleId: normalised.moduleId,
-          areaId: normalised.moduleId ? "university" : null,
-          syncedAt: new Date().toISOString(),
-        })
-        .onConflictDoUpdate({
-          target: calendarEvents.googleEventId,
-          set: {
-            title: normalised.title,
-            startAt: normalised.startAt,
-            endAt: normalised.endAt,
-            isAllDay: normalised.isAllDay,
-            moduleId: normalised.moduleId,
-            syncedAt: new Date().toISOString(),
-          },
-        });
-      imported += 1;
-    }
-
-    pageToken = payload.nextPageToken;
-    if (!pageToken) break;
+  } catch (cause) {
+    return c.json(
+      { error: cause instanceof Error ? cause.message : "Calendar sync failed" },
+      502,
+    );
   }
-
-  await recordSync(db);
-  return c.json({ imported, skipped, timeMin, timeMax });
 });
 
 /** Mirrored events, for capacity and the next-commitment gap. */

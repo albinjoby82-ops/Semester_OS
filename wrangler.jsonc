@@ -19,9 +19,8 @@
     {
       "binding": "DB",
       "database_name": "semester-os",
-      // Placeholder until `wrangler d1 create semester-os` is run for deploy.
-      // Local dev under `vite dev` ignores this and uses .wrangler/state.
-      "database_id": "local-dev-placeholder",
+      // Production D1 database. Local dev under `vite dev` uses .wrangler/state.
+      "database_id": "e2bf087d-4aa3-405b-a701-d228bf7b8edb",
       "migrations_dir": "./db/migrations"
     }
   ],
