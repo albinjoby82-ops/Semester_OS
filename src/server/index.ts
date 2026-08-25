@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import { drizzle } from "drizzle-orm/d1";
+import { asc } from "drizzle-orm";
 import * as schema from "../../db/schema";
+import { areas } from "../../db/schema";
 import { modulesRoute } from "./routes/modules";
 import { tasksRoute } from "./routes/tasks";
 
@@ -22,6 +24,10 @@ app.use("/api/*", async (c, next) => {
 });
 
 app.get("/api/health", (c) => c.json({ ok: true }));
+
+app.get("/api/areas", async (c) =>
+  c.json(await c.get("db").select().from(areas).orderBy(asc(areas.sortOrder))),
+);
 
 app.route("/api/modules", modulesRoute);
 app.route("/api/tasks", tasksRoute);

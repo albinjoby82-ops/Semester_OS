@@ -1,78 +1,37 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CURRENT_TERM, TERM_DATES_UNCONFIRMED } from "../shared/term-config";
-import {
-  allTeachingWeeks,
-  dateRangeForWeek,
-  formatRange,
-  teachingWeekForDate,
-} from "../shared/term-week";
-import type { GradeSummary } from "../shared/grades";
-
-interface Assessment {
-  id: string;
-  title: string;
-  weightPercent: number;
-  dueWeek: number | null;
-  dueWeekEnd: number | null;
-  isExam: boolean;
-  isSubmitted: boolean;
-}
-
-interface ModuleView {
-  id: string;
-  code: string;
-  name: string;
-  coordinator: string | null;
-  studentEffortHours: number | null;
-  assessmentProfile: "exam_heavy" | "continuous" | "portfolio";
-  colorToken: string;
-  assessments: Assessment[];
-  gradeSummary: GradeSummary;
-}
-
-interface Task {
-  id: string;
-  title: string;
-  status: string;
-  dueAt: string | null;
-  estimatedMinutes: number | null;
-}
-
-/** Module colours. Never the only signal -- always paired with text. */
-const MODULE_COLOR: Record<string, string> = {
-  amber: "#d97706",
-  emerald: "#059669",
-  sky: "#0284c7",
-  rose: "#e11d48",
-  violet: "#7c3aed",
-  teal: "#0d9488",
-  neutral: "#64748b",
-};
-
-const PROFILE_LABEL: Record<ModuleView["assessmentProfile"], string> = {
-  exam_heavy: "Exam-heavy",
-  continuous: "Continuous",
-  portfolio: "Portfolio",
-};
+import { teachingWeekForDate } from "../shared/term-week";
+import { parseCapture } from "../shared/parse-capture";
+import { api, type Area, type ModuleView, type Task } from "./lib/api";
+import { daysBetween, formatMinutes } from "./lib/format";
+import { QuickCapture } from "./components/QuickCapture";
+import { TaskRow } from "./components/TaskRow";
+import { TrimesterStrip } from "./components/TrimesterStrip";
+import { ModuleCard } from "./components/ModuleCard";
 
 export function App() {
   const [modules, setModules] = useState<ModuleView[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
-  const captureRef = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const [m, t] = await Promise.all([
-        fetch("/api/modules").then((r) => r.json()),
-        fetch("/api/tasks").then((r) => r.json()),
+      const [m, a, t] = await Promise.all([
+        api.modules(),
+        api.areas(),
+        api.tasks(),
       ]);
-      setModules(Array.isArray(m) ? m : []);
-      setTasks(Array.isArray(t) ? t : []);
+      setModules(m);
+      setAreas(a);
+      setTasks(t);
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Failed to load");
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -80,59 +39,154 @@ export function App() {
     void load();
   }, [load]);
 
-  // Press Q anywhere to capture. Under five seconds, or it will not get used.
+  // Q from anywhere. Capture has to be faster than opening anything else.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       const typing =
-        target?.tagName === "INPUT" || target?.tagName === "TEXTAREA";
-      if (event.key.toLowerCase() === "q" && !typing && !event.metaKey) {
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable;
+      if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key.toLowerCase() === "q") {
         event.preventDefault();
         setCapturing(true);
       }
-      if (event.key === "Escape") setCapturing(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  useEffect(() => {
-    if (capturing) captureRef.current?.focus();
-  }, [capturing]);
+  const moduleById = useMemo(
+    () => new Map(modules.map((m) => [m.id, m])),
+    [modules],
+  );
+  const moduleByCode = useMemo(
+    () => new Map(modules.map((m) => [m.code, m])),
+    [modules],
+  );
+  const areaById = useMemo(() => new Map(areas.map((a) => [a.id, a])), [areas]);
 
-  const capture = async (title: string) => {
-    if (!title.trim()) return;
-    // Optimistic: the row appears immediately, sync follows.
+  const capture = async (raw: string) => {
+    const parsed = parseCapture(raw);
+    const module = parsed.moduleCode
+      ? moduleByCode.get(parsed.moduleCode)
+      : undefined;
+
     const optimistic: Task = {
       id: crypto.randomUUID(),
-      title: title.trim(),
+      title: parsed.title,
+      areaId: parsed.areaId ?? "university",
+      moduleId: module?.id ?? null,
+      assignmentId: null,
       status: "todo",
-      dueAt: null,
-      estimatedMinutes: null,
+      dueAt: parsed.dueAt,
+      weekNumber: null,
+      estimatedMinutes: parsed.estimatedMinutes,
+      isRequiredWeekly: false,
+      deferredReason: null,
+      createdAt: new Date().toISOString(),
     };
+
     setTasks((prev) => [optimistic, ...prev]);
     setCapturing(false);
 
-    await fetch("/api/tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: optimistic.id, title: optimistic.title }),
-    });
-    void load();
+    try {
+      await api.createTask({
+        id: optimistic.id,
+        title: optimistic.title,
+        areaId: optimistic.areaId,
+        moduleId: optimistic.moduleId,
+        dueAt: optimistic.dueAt,
+        estimatedMinutes: optimistic.estimatedMinutes,
+      });
+      void load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Failed to save");
+    }
   };
 
-  const currentWeek = teachingWeekForDate(new Date(), CURRENT_TERM);
+  const patch = async (id: string, changes: Parameters<typeof api.updateTask>[1]) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, ...changes } as Task : t)),
+    );
+    try {
+      await api.updateTask(id, changes);
+      void load();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Update failed");
+      void load();
+    }
+  };
+
+  const isAssessed = (task: Task) => Boolean(task.assignmentId);
+
+  const handlers = {
+    onToggleDone: (task: Task) =>
+      patch(task.id, {
+        status: task.status === "todo" || task.status === "in_progress"
+          ? "done"
+          : "todo",
+      }),
+    onSubmit: (task: Task) => patch(task.id, { status: "submitted" }),
+    onDefer: (task: Task, reason: string) =>
+      patch(task.id, { deferredReason: reason }),
+  };
+
+  const now = new Date();
+  const groups = useMemo(() => {
+    const overdue: Task[] = [];
+    const today: Task[] = [];
+    const upcoming: Task[] = [];
+    const undated: Task[] = [];
+
+    for (const task of tasks) {
+      if (!task.dueAt) {
+        undated.push(task);
+        continue;
+      }
+      const days = daysBetween(now, new Date(task.dueAt));
+      if (days < 0) overdue.push(task);
+      else if (days === 0) today.push(task);
+      else upcoming.push(task);
+    }
+    return { overdue, today, upcoming, undated };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks]);
+
+  const currentWeek = teachingWeekForDate(now, CURRENT_TERM);
   const totalEffort = modules.reduce(
     (sum, m) => sum + (m.studentEffortHours ?? 0),
     0,
   );
+  const committedMinutes = tasks.reduce(
+    (sum, t) => sum + (t.estimatedMinutes ?? 0),
+    0,
+  );
+
+  const renderTasks = (list: Task[]) => (
+    <ul className="divide-y divide-[var(--color-border)] overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-surface)]">
+      {list.map((task) => (
+        <TaskRow
+          key={task.id}
+          task={task}
+          module={task.moduleId ? moduleById.get(task.moduleId) : undefined}
+          area={areaById.get(task.areaId)}
+          isAssessed={isAssessed(task)}
+          {...handlers}
+        />
+      ))}
+    </ul>
+  );
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-8">
-      <header className="mb-8 flex flex-wrap items-baseline justify-between gap-3">
+    <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Semester OS</h1>
-          <p className="text-sm text-[var(--color-muted)]">
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+            Semester OS
+          </h1>
+          <p className="mt-0.5 text-sm text-[var(--color-muted)]">
             {CURRENT_TERM.label}
             {currentWeek
               ? ` · Week ${currentWeek} of ${CURRENT_TERM.teachingWeeks}`
@@ -143,12 +197,15 @@ export function App() {
           onClick={() => setCapturing(true)}
           className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm hover:border-[var(--color-accent)]"
         >
-          + Quick task <kbd className="ml-1 text-[var(--color-muted)]">Q</kbd>
+          + Quick task{" "}
+          <kbd className="ml-1 rounded bg-[var(--color-bg)] px-1 text-[10px] text-[var(--color-muted)]">
+            Q
+          </kbd>
         </button>
       </header>
 
       {TERM_DATES_UNCONFIRMED && (
-        <p className="mb-6 rounded-md border border-amber-700/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-200">
+        <p className="mb-5 rounded-md border border-amber-700/50 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
           <strong>Term dates unconfirmed.</strong> Week numbers are provisional
           until the real UCD Autumn 2026 start date and study week are set in{" "}
           <code>src/shared/term-config.ts</code>.
@@ -157,151 +214,142 @@ export function App() {
 
       <TrimesterStrip currentWeek={currentWeek} modules={modules} />
 
-      {capturing && (
-        <form
-          className="my-6"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const input = captureRef.current;
-            if (input) void capture(input.value);
-            if (input) input.value = "";
-          }}
-        >
-          <input
-            ref={captureRef}
-            placeholder="What needs doing?  (Enter to save, Esc to cancel)"
-            className="w-full rounded-md border border-[var(--color-accent)] bg-[var(--color-surface)] px-4 py-3 outline-none"
-            onBlur={() => setCapturing(false)}
-          />
-        </form>
-      )}
-
       {error && (
         <p className="my-4 rounded-md border border-rose-800 bg-rose-950/40 px-3 py-2 text-sm text-rose-200">
           {error}
         </p>
       )}
 
-      <section className="my-8">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-[var(--color-muted)]">
-          Open tasks ({tasks.length})
-        </h2>
-        {tasks.length === 0 ? (
-          <p className="text-sm text-[var(--color-muted)]">
-            Nothing captured yet. Press <kbd>Q</kbd>.
-          </p>
-        ) : (
-          <ul className="divide-y divide-[var(--color-border)] rounded-md border border-[var(--color-border)]">
-            {tasks.map((task) => (
-              <li key={task.id} className="px-4 py-2.5 text-sm">
-                {task.title}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="my-8">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-[var(--color-muted)]">
-          Modules
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {modules.map((module) => (
-            <ModuleCard key={module.id} module={module} />
-          ))}
-        </div>
-        {totalEffort > 0 && (
-          <p className="mt-4 text-sm text-[var(--color-muted)]">
-            UCD states <strong>{totalEffort}h</strong> of total effort across
-            these modules — about{" "}
-            <strong>
-              {Math.round(totalEffort / CURRENT_TERM.teachingWeeks)}h/week
-            </strong>{" "}
-            of university work alone, before GaelForce and Accio.
-          </p>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function TrimesterStrip({
-  currentWeek,
-  modules,
-}: {
-  currentWeek: number | null;
-  modules: ModuleView[];
-}) {
-  const weeks = allTeachingWeeks(CURRENT_TERM);
-  const loadByWeek = new Map<number, number>();
-  for (const module of modules) {
-    for (const a of module.assessments) {
-      if (a.dueWeek == null) continue;
-      for (let w = a.dueWeek; w <= (a.dueWeekEnd ?? a.dueWeek); w += 1) {
-        loadByWeek.set(w, (loadByWeek.get(w) ?? 0) + a.weightPercent);
-      }
-    }
-  }
-  const peak = Math.max(1, ...loadByWeek.values());
-
-  return (
-    <div className="flex gap-1">
-      {weeks.map((week) => {
-        const load = loadByWeek.get(week) ?? 0;
-        const isNow = week === currentWeek;
-        return (
-          <div
-            key={week}
-            title={`Week ${week} · ${formatRange(dateRangeForWeek(week, CURRENT_TERM))} · ${Math.round(load)}% of assessment weight due`}
-            className="flex-1"
-          >
-            <div
-              className="h-10 rounded-sm border"
-              style={{
-                borderColor: isNow ? "var(--color-accent)" : "var(--color-border)",
-                background: `color-mix(in srgb, var(--color-accent) ${Math.round((load / peak) * 45)}%, var(--color-surface))`,
-              }}
-            />
-            <div
-              className={`mt-1 text-center text-[10px] ${isNow ? "font-bold text-[var(--color-accent)]" : "text-[var(--color-muted)]"}`}
+      {loading ? (
+        <p className="my-10 text-sm text-[var(--color-muted)]">Loading…</p>
+      ) : (
+        <>
+          {/* Overdue first, always. Never hide overdue work. */}
+          {groups.overdue.length > 0 && (
+            <Section
+              title={`Overdue (${groups.overdue.length})`}
+              tone="danger"
+              note="Carried forward until done, rescheduled, or dismissed with a reason."
             >
-              {week}
+              {renderTasks(groups.overdue)}
+            </Section>
+          )}
+
+          <Section title={`Today (${groups.today.length})`}>
+            {groups.today.length > 0 ? (
+              renderTasks(groups.today)
+            ) : (
+              <Empty>Nothing due today.</Empty>
+            )}
+          </Section>
+
+          {groups.upcoming.length > 0 && (
+            <Section title={`Upcoming (${groups.upcoming.length})`}>
+              {renderTasks(groups.upcoming)}
+            </Section>
+          )}
+
+          {groups.undated.length > 0 && (
+            <Section
+              title={`No date (${groups.undated.length})`}
+              note="Captured but not yet placed. Give these a day to make them real."
+            >
+              {renderTasks(groups.undated)}
+            </Section>
+          )}
+
+          {tasks.length === 0 && (
+            <Empty>
+              Nothing captured yet. Press <Kbd>Q</Kbd> and type something like{" "}
+              <code>digital lab friday 1h</code>.
+            </Empty>
+          )}
+
+          <Section title="Modules">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {modules.map((module) => (
+                <ModuleCard key={module.id} module={module} />
+              ))}
             </div>
-          </div>
-        );
-      })}
+
+            {totalEffort > 0 && (
+              <p className="mt-4 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-xs leading-relaxed text-[var(--color-muted)]">
+                <strong className="text-[var(--color-fg)]">
+                  The honest effort budget.
+                </strong>{" "}
+                UCD states {totalEffort}h of total effort across these six
+                modules — about{" "}
+                <strong className="text-[var(--color-fg)]">
+                  {Math.round(totalEffort / CURRENT_TERM.teachingWeeks)}h a week
+                </strong>{" "}
+                of university work alone, before GaelForce and Accio.
+                {committedMinutes > 0 && (
+                  <>
+                    {" "}
+                    You have{" "}
+                    <strong className="text-[var(--color-fg)]">
+                      {formatMinutes(committedMinutes)}
+                    </strong>{" "}
+                    of estimated work currently captured.
+                  </>
+                )}
+              </p>
+            )}
+          </Section>
+        </>
+      )}
+
+      <QuickCapture
+        open={capturing}
+        modules={modules}
+        onClose={() => setCapturing(false)}
+        onSave={(raw) => void capture(raw)}
+      />
     </div>
   );
 }
 
-function ModuleCard({ module }: { module: ModuleView }) {
-  const color = MODULE_COLOR[module.colorToken] ?? MODULE_COLOR.neutral;
-  const { gradeSummary: g } = module;
-
+function Section({
+  title,
+  note,
+  tone,
+  children,
+}: {
+  title: string;
+  note?: string;
+  tone?: "danger";
+  children: React.ReactNode;
+}) {
   return (
-    <article className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-      <div className="flex items-baseline justify-between gap-2">
-        <h3 className="font-mono text-sm font-semibold" style={{ color }}>
-          {module.code}
-        </h3>
-        <span className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
-          {PROFILE_LABEL[module.assessmentProfile]}
-        </span>
-      </div>
-      <p className="mt-0.5 text-sm">{module.name}</p>
+    <section className="my-7">
+      <h2
+        className="mb-2 text-xs font-semibold uppercase tracking-widest"
+        style={{
+          color: tone === "danger" ? "#fb7185" : "var(--color-muted)",
+        }}
+      >
+        {title}
+      </h2>
+      {note && (
+        <p className="mb-2 text-xs text-[var(--color-muted)]">{note}</p>
+      )}
+      {children}
+    </section>
+  );
+}
 
-      {/* Grade banked vs at stake. Progress only where progress is earned. */}
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--color-bg)]">
-        <div
-          className="h-full"
-          style={{ width: `${g.bankedWeight}%`, background: color }}
-        />
-      </div>
-      <p className="mt-1.5 text-xs text-[var(--color-muted)]">
-        {g.gradedCount === 0
-          ? `No results yet · ${module.assessments.length} assessments · 100% at stake`
-          : `${g.bankedPoints.toFixed(1)}% banked of ${g.bankedWeight}% assessed · ${g.atStakeWeight}% still at stake`}
-      </p>
-    </article>
+function Empty({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="rounded-md border border-dashed border-[var(--color-border)] px-4 py-6 text-center text-sm text-[var(--color-muted)]">
+      {children}
+    </p>
+  );
+}
+
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="rounded bg-[var(--color-surface)] px-1.5 py-0.5 text-[11px]">
+      {children}
+    </kbd>
   );
 }
