@@ -11,6 +11,10 @@ import {
   type ActiveSession,
   type WeekView,
 } from "./lib/api";
+import type { StageKey } from "../shared/radar";
+import type { WireRadarItem } from "./lib/wire";
+import { STAGE_FIELD } from "./lib/stages";
+import { linkProps, useRoute } from "./lib/router";
 import { daysBetween, formatMinutes } from "./lib/format";
 import { QuickCapture } from "./components/QuickCapture";
 import { TaskRow } from "./components/TaskRow";
@@ -18,6 +22,8 @@ import { OverloadHorizon } from "./components/OverloadHorizon";
 import { WeekPanel } from "./components/WeekPanel";
 import { ModuleCard } from "./components/ModuleCard";
 import { FocusMode } from "./components/FocusMode";
+import { ModulePage } from "./components/ModulePage";
+import { AssessmentRadar } from "./components/AssessmentRadar";
 import type { Calibration } from "../shared/calibration";
 
 export function App() {
@@ -28,13 +34,15 @@ export function App() {
   const [debt, setDebt] = useState<DebtView | null>(null);
   const [active, setActive] = useState<ActiveSession | null>(null);
   const [calibration, setCalibration] = useState<Calibration | null>(null);
+  const [radar, setRadar] = useState<WireRadarItem[]>([]);
+  const { route, navigate } = useRoute();
   const [error, setError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const [m, a, t, w, d, s, cal] = await Promise.all([
+      const [m, a, t, w, d, s, cal, r] = await Promise.all([
         api.modules(),
         api.areas(),
         api.tasks(),
@@ -42,7 +50,9 @@ export function App() {
         api.debt(),
         api.activeSession(),
         api.calibration(),
+        api.radar(14, true),
       ]);
+      setRadar(r);
       setModules(m);
       setAreas(a);
       setTasks(t);
@@ -144,6 +154,26 @@ export function App() {
 
   const isAssessed = (task: Task) => Boolean(task.assignmentId);
 
+  const toggleStage = async (id: string, key: StageKey, next: boolean) => {
+    try {
+      await api.updateAssignment(id, { [STAGE_FIELD[key]]: next });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Update failed");
+    } finally {
+      void load();
+    }
+  };
+
+  const saveGrade = async (id: string, awarded: number, possible: number) => {
+    try {
+      await api.saveGrade(id, awarded, possible);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not save grade");
+    } finally {
+      void load();
+    }
+  };
+
   const startFocus = async (task: Task) => {
     try {
       setActive(await api.startSession(task.id));
@@ -244,6 +274,29 @@ export function App() {
               : " · outside teaching weeks"}
           </p>
         </div>
+        <nav className="flex items-center gap-3 text-sm">
+          <a
+            {...linkProps({ name: "today" }, navigate)}
+            className={
+              route.name === "today"
+                ? "text-[var(--color-fg)]"
+                : "text-[var(--color-muted)] hover:text-[var(--color-fg)]"
+            }
+          >
+            Today
+          </a>
+          <a
+            {...linkProps({ name: "assessments" }, navigate)}
+            className={
+              route.name === "assessments"
+                ? "text-[var(--color-fg)]"
+                : "text-[var(--color-muted)] hover:text-[var(--color-fg)]"
+            }
+          >
+            Assessments
+          </a>
+        </nav>
+
         <button
           onClick={() => setCapturing(true)}
           className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm hover:border-[var(--color-accent)]"
@@ -263,145 +316,193 @@ export function App() {
         </p>
       )}
 
-      {week && (
-        <OverloadHorizon horizon={week.horizon} currentWeek={week.currentWeek} />
-      )}
-
-      {error && (
-        <p className="my-4 rounded-md border border-rose-800 bg-rose-950/40 px-3 py-2 text-sm text-rose-200">
-          {error}
-        </p>
-      )}
-
-      {loading ? (
-        <p className="my-10 text-sm text-[var(--color-muted)]">Loading…</p>
-      ) : (
-        <>
-          {week && (
-            <WeekPanel
-              week={week}
-              areas={areas}
-              onSaveAllocations={async (allocations) => {
-                await api.setAllocations(allocations);
+      {route.name === "module" ? (
+        (() => {
+          const module = modules.find((m) => m.code === route.code);
+          return module ? (
+            <ModulePage
+              module={module}
+              onToggleStage={(id, key, next) => void toggleStage(id, key, next)}
+              onSaveGrade={(id, a, b) => void saveGrade(id, a, b)}
+              onClearGrade={async (id) => {
+                await api.clearGrade(id);
+                void load();
+              }}
+              onPinDate={async (id, dueAt) => {
+                await api.updateAssignment(id, { dueAt });
                 void load();
               }}
             />
-          )}
+          ) : (
+            <Empty>No module with code {route.code}.</Empty>
+          );
+        })()
+      ) : route.name === "assessments" ? (
+        <Section
+          title={`Assessment radar (${radar.length})`}
+          note="Everything assessed that is due, overdue, or coming. Overdue work stays at the top rather than dropping off the list."
+        >
+          <AssessmentRadar
+            items={radar}
+            onOpenModule={(code) => navigate({ name: "module", code })}
+          />
+        </Section>
+      ) : (
+        <>
+        {week && (
+          <OverloadHorizon horizon={week.horizon} currentWeek={week.currentWeek} />
+        )}
 
-          {/* Academic debt: expected work that should already be done. */}
-          {debt && debt.count > 0 && (
-            <Section
-              title={`Academic debt: ${debt.count}`}
-              tone="danger"
-              note="University work from this week or earlier that should already be complete. It carries forward until done, rescheduled, or dismissed with a reason."
-            >
-              <p className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[var(--color-muted)]">
-                {debt.byModule.map((entry) => (
-                  <span key={entry.code}>
-                    <strong className="text-[var(--color-fg)]">
-                      {entry.code}
-                    </strong>{" "}
-                    {entry.titles.length}
-                  </span>
-                ))}
-              </p>
-              {renderTasks(debt.items)}
-            </Section>
-          )}
+        {error && (
+          <p className="my-4 rounded-md border border-rose-800 bg-rose-950/40 px-3 py-2 text-sm text-rose-200">
+            {error}
+          </p>
+        )}
 
-          {/* Overdue first, always. Never hide overdue work. */}
-          {groups.overdue.length > 0 && (
-            <Section
-              title={`Overdue (${groups.overdue.length})`}
-              tone="danger"
-              note="Carried forward until done, rescheduled, or dismissed with a reason."
-            >
-              {renderTasks(groups.overdue)}
-            </Section>
-          )}
-
-          <Section title={`Today (${groups.today.length})`}>
-            {groups.today.length > 0 ? (
-              renderTasks(groups.today)
-            ) : (
-              <Empty>Nothing due today.</Empty>
+        {loading ? (
+          <p className="my-10 text-sm text-[var(--color-muted)]">Loading…</p>
+        ) : (
+          <>
+            {week && (
+              <WeekPanel
+                week={week}
+                areas={areas}
+                onSaveAllocations={async (allocations) => {
+                  await api.setAllocations(allocations);
+                  void load();
+                }}
+              />
             )}
-          </Section>
 
-          {groups.upcoming.length > 0 && (
-            <Section title={`Upcoming (${groups.upcoming.length})`}>
-              {renderTasks(groups.upcoming)}
-            </Section>
-          )}
-
-          {groups.undated.length > 0 && (
-            <Section
-              title={`No date (${groups.undated.length})`}
-              note="Captured but not yet placed. Give these a day to make them real."
-            >
-              {renderTasks(groups.undated)}
-            </Section>
-          )}
-
-          {tasks.length === 0 && (
-            <Empty>
-              Nothing captured yet. Press <Kbd>Q</Kbd> and type something like{" "}
-              <code>digital lab friday 1h</code>.
-            </Empty>
-          )}
-
-          <Section title="Modules">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {modules.map((module) => (
-                <ModuleCard key={module.id} module={module} />
-              ))}
-            </div>
-
-            {totalEffort > 0 && week && (
-              <p className="mt-4 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-xs leading-relaxed text-[var(--color-muted)]">
-                <strong className="text-[var(--color-fg)]">
-                  The honest effort budget.
-                </strong>{" "}
-                UCD states {totalEffort}h of total effort across these six
-                modules — about{" "}
-                <strong className="text-[var(--color-fg)]">
-                  {week.effort.statedPerWeek.toFixed(1)}h a week
-                </strong>{" "}
-                of university work alone, against{" "}
-                {week.effort.realisticHours}h of realistically allocatable time,
-                before GaelForce and Accio.
-                {!week.effort.feasible && (
-                  <>
-                    {" "}
-                    That is{" "}
-                    <strong className="text-rose-300">
-                      {week.effort.gapPerWeek.toFixed(1)}h a week more than fits
-                    </strong>
-                    . Something has to give, and it is better to choose than to
-                    discover it.
-                  </>
-                )}
-                {calibration?.message && (
-                  <>
-                    {" "}
-                    <span className="text-[var(--color-fg)]">
-                      {calibration.message}
+            {/* Academic debt: expected work that should already be done. */}
+            {debt && debt.count > 0 && (
+              <Section
+                title={`Academic debt: ${debt.count}`}
+                tone="danger"
+                note="University work from this week or earlier that should already be complete. It carries forward until done, rescheduled, or dismissed with a reason."
+              >
+                <p className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[var(--color-muted)]">
+                  {debt.byModule.map((entry) => (
+                    <span key={entry.code}>
+                      <strong className="text-[var(--color-fg)]">
+                        {entry.code}
+                      </strong>{" "}
+                      {entry.titles.length}
                     </span>
-                  </>
-                )}
-                {committedMinutes > 0 && (
-                  <>
-                    {" "}
-                    You currently have{" "}
-                    <strong className="text-[var(--color-fg)]">
-                      {formatMinutes(committedMinutes)}
-                    </strong>{" "}
-                    of estimated work captured.
-                  </>
-                )}
-              </p>
+                  ))}
+                </p>
+                {renderTasks(debt.items)}
+              </Section>
             )}
-          </Section>
+
+            {/* Overdue first, always. Never hide overdue work. */}
+            {groups.overdue.length > 0 && (
+              <Section
+                title={`Overdue (${groups.overdue.length})`}
+                tone="danger"
+                note="Carried forward until done, rescheduled, or dismissed with a reason."
+              >
+                {renderTasks(groups.overdue)}
+              </Section>
+            )}
+
+            <Section title={`Today (${groups.today.length})`}>
+              {groups.today.length > 0 ? (
+                renderTasks(groups.today)
+              ) : (
+                <Empty>Nothing due today.</Empty>
+              )}
+            </Section>
+
+            {groups.upcoming.length > 0 && (
+              <Section title={`Upcoming (${groups.upcoming.length})`}>
+                {renderTasks(groups.upcoming)}
+              </Section>
+            )}
+
+            {groups.undated.length > 0 && (
+              <Section
+                title={`No date (${groups.undated.length})`}
+                note="Captured but not yet placed. Give these a day to make them real."
+              >
+                {renderTasks(groups.undated)}
+              </Section>
+            )}
+
+            {tasks.length === 0 && (
+              <Empty>
+                Nothing captured yet. Press <Kbd>Q</Kbd> and type something like{" "}
+                <code>digital lab friday 1h</code>.
+              </Empty>
+            )}
+
+            {radar.length > 0 && (
+              <Section
+                title="Next assessments"
+                note="Ordered by date, then by what they are worth."
+              >
+                <AssessmentRadar
+                  items={radar}
+                  compact
+                  onOpenModule={(code) => navigate({ name: "module", code })}
+                />
+              </Section>
+            )}
+
+            <Section title="Modules">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {modules.map((module) => (
+                  <ModuleCard key={module.id} module={module} />
+                ))}
+              </div>
+
+              {totalEffort > 0 && week && (
+                <p className="mt-4 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-xs leading-relaxed text-[var(--color-muted)]">
+                  <strong className="text-[var(--color-fg)]">
+                    The honest effort budget.
+                  </strong>{" "}
+                  UCD states {totalEffort}h of total effort across these six
+                  modules — about{" "}
+                  <strong className="text-[var(--color-fg)]">
+                    {week.effort.statedPerWeek.toFixed(1)}h a week
+                  </strong>{" "}
+                  of university work alone, against{" "}
+                  {week.effort.realisticHours}h of realistically allocatable time,
+                  before GaelForce and Accio.
+                  {!week.effort.feasible && (
+                    <>
+                      {" "}
+                      That is{" "}
+                      <strong className="text-rose-300">
+                        {week.effort.gapPerWeek.toFixed(1)}h a week more than fits
+                      </strong>
+                      . Something has to give, and it is better to choose than to
+                      discover it.
+                    </>
+                  )}
+                  {calibration?.message && (
+                    <>
+                      {" "}
+                      <span className="text-[var(--color-fg)]">
+                        {calibration.message}
+                      </span>
+                    </>
+                  )}
+                  {committedMinutes > 0 && (
+                    <>
+                      {" "}
+                      You currently have{" "}
+                      <strong className="text-[var(--color-fg)]">
+                        {formatMinutes(committedMinutes)}
+                      </strong>{" "}
+                      of estimated work captured.
+                    </>
+                  )}
+                </p>
+              )}
+            </Section>
+          </>
+        )}
         </>
       )}
 

@@ -1,8 +1,9 @@
 import type { GradeSummary } from "../../shared/grades";
-import type { ModuleRisk } from "../../shared/risk";
 import type { WeekCapacity, OverloadWarning } from "../../shared/capacity";
 import type { DriftReport, TrailingRatio } from "../../shared/drift";
 import type { Calibration } from "../../shared/calibration";
+import type { StageKey } from "../../shared/radar";
+import type { WireModuleRisk, WireRadarItem } from "./wire";
 
 export interface Assessment {
   id: string;
@@ -16,6 +17,22 @@ export interface Assessment {
   isExam: boolean;
   isSubmitted: boolean;
   submittedAt: string | null;
+  submissionVerifiedAt: string | null;
+  readBriefAt: string | null;
+  startedAt: string | null;
+  mainWorkDoneAt: string | null;
+  checkedAt: string | null;
+  estimatedMinutes: number | null;
+  grade: Grade | null;
+}
+
+export interface Grade {
+  id: string;
+  assignmentId: string;
+  marksAwarded: number;
+  marksPossible: number;
+  receivedAt: string;
+  feedbackNote: string | null;
 }
 
 export interface ModuleView {
@@ -30,7 +47,7 @@ export interface ModuleView {
   ucdUrl: string | null;
   assessments: Assessment[];
   gradeSummary: GradeSummary;
-  risk: ModuleRisk;
+  risk: WireModuleRisk;
 }
 
 export interface Task {
@@ -118,6 +135,32 @@ export const api = {
   week: () => json<WeekView>("/api/week"),
   activeSession: () => json<ActiveSession | null>("/api/sessions/active"),
   calibration: () => json<Calibration>("/api/sessions/calibration"),
+
+  radar: (days = 14, includeUndated = false) =>
+    json<WireRadarItem[]>(
+      `/api/assignments/radar?days=${days}&includeUndated=${includeUndated}`,
+    ),
+
+  updateAssignment: (
+    id: string,
+    patch: Partial<Record<
+      "readBrief" | "started" | "mainWorkDone" | "checked" | "submitted" | "submissionVerified" | "userConfirmed",
+      boolean
+    >> & { dueAt?: string | null; estimatedMinutes?: number | null },
+  ) =>
+    json<Assessment>(`/api/assignments/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  saveGrade: (id: string, marksAwarded: number, marksPossible: number) =>
+    json<Grade>(`/api/assignments/${id}/grade`, {
+      method: "PUT",
+      body: JSON.stringify({ marksAwarded, marksPossible }),
+    }),
+
+  clearGrade: (id: string) =>
+    json<{ ok: true }>(`/api/assignments/${id}/grade`, { method: "DELETE" }),
 
   startSession: (taskId: string) =>
     json<ActiveSession>("/api/sessions/start", {
