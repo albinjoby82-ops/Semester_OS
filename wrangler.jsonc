@@ -8,6 +8,10 @@
   // The Cloudflare Vite plugin supplies the assets directory from the build
   // output, so only the SPA fallback behaviour is configured here.
   "assets": {
+    // Needed so the Worker can serve the SPA shell itself. `not_found_handling`
+    // alone does nothing here: it only applies when there is no Worker script,
+    // and this Worker exists, so asset misses fall through to Hono instead.
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   },
 

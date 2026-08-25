@@ -10,7 +10,9 @@ export type Route =
   | { name: "today" }
   | { name: "module"; code: string }
   | { name: "assessments" }
-  | { name: "settings" };
+  | { name: "settings" }
+  | { name: "glance" }
+  | { name: "share" };
 
 export function parseRoute(pathname: string): Route {
   const moduleMatch = /^\/modules\/([A-Za-z0-9]+)\/?$/.exec(pathname);
@@ -19,6 +21,8 @@ export function parseRoute(pathname: string): Route {
   }
   if (/^\/assessments\/?$/.test(pathname)) return { name: "assessments" };
   if (/^\/settings\/?$/.test(pathname)) return { name: "settings" };
+  if (/^\/glance\/?$/.test(pathname)) return { name: "glance" };
+  if (/^\/share\/?$/.test(pathname)) return { name: "share" };
   return { name: "today" };
 }
 
@@ -30,6 +34,10 @@ export function hrefFor(route: Route): string {
       return "/assessments";
     case "settings":
       return "/settings";
+    case "glance":
+      return "/glance";
+    case "share":
+      return "/share";
     default:
       return "/";
   }

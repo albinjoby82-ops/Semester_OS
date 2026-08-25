@@ -28,6 +28,13 @@ import { ModulePage } from "./components/ModulePage";
 import { AssessmentRadar } from "./components/AssessmentRadar";
 import { NextAction } from "./components/NextAction";
 import { GooglePanel } from "./components/GooglePanel";
+import { Glance } from "./components/Glance";
+import {
+  enqueue,
+  flushQueue,
+  readQueue,
+  requestBackgroundFlush,
+} from "./lib/offline";
 import { minutesUntilNextEvent } from "../shared/calendar";
 import type { Calibration } from "../shared/calibration";
 
@@ -44,6 +51,8 @@ export function App() {
   const [google, setGoogle] = useState<GoogleStatusView | null>(null);
   const [googleBusy, setGoogleBusy] = useState(false);
   const [googleMessage, setGoogleMessage] = useState<string | null>(null);
+  const [queued, setQueued] = useState(0);
+  const [online, setOnline] = useState(() => navigator.onLine);
   const { route, navigate } = useRoute();
   const [error, setError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
@@ -97,6 +106,17 @@ export function App() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Launched from the home-screen shortcut or the Android share sheet.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("capture") === "1") {
+      setCapturing(true);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("capture");
+      window.history.replaceState(null, "", url.pathname + url.search);
+    }
+  }, []);
 
   // The OAuth callback redirects back with ?google=... Surface it, then strip
   // it from the URL so a refresh does not replay a stale message.
@@ -165,20 +185,67 @@ export function App() {
     setTasks((prev) => [optimistic, ...prev]);
     setCapturing(false);
 
+    const payload = {
+      id: optimistic.id,
+      title: optimistic.title,
+      areaId: optimistic.areaId,
+      moduleId: optimistic.moduleId,
+      dueAt: optimistic.dueAt,
+      estimatedMinutes: optimistic.estimatedMinutes,
+    };
+
     try {
-      await api.createTask({
-        id: optimistic.id,
-        title: optimistic.title,
-        areaId: optimistic.areaId,
-        moduleId: optimistic.moduleId,
-        dueAt: optimistic.dueAt,
-        estimatedMinutes: optimistic.estimatedMinutes,
-      });
+      await api.createTask(payload);
       void load();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Failed to save");
+    } catch {
+      // Capture must never fail. Queue it, tell the user it is safe, and let
+      // the flush handle it. The insert is idempotent on the client-generated
+      // id, so a retry cannot duplicate the task.
+      await enqueue({
+        ...payload,
+        source: "manual",
+        queuedAt: new Date().toISOString(),
+        attempts: 0,
+      });
+      setQueued((await readQueue()).length);
+      void requestBackgroundFlush();
     }
   };
+
+  const flush = useCallback(async () => {
+    const result = await flushQueue((queuedItem) =>
+      fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(queuedItem),
+      }),
+    );
+    setQueued(result.remaining);
+    if (result.sent > 0) void load();
+  }, [load]);
+
+  useEffect(() => {
+    void readQueue().then((items) => setQueued(items.length));
+    void flush();
+
+    const goOnline = () => {
+      setOnline(true);
+      void flush();
+    };
+    const goOffline = () => setOnline(false);
+    const onMessage = (event: MessageEvent) => {
+      if (event.data?.type === "flush-captures") void flush();
+    };
+
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    navigator.serviceWorker?.addEventListener("message", onMessage);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+      navigator.serviceWorker?.removeEventListener("message", onMessage);
+    };
+  }, [flush]);
 
   const patch = async (id: string, changes: Parameters<typeof api.updateTask>[1]) => {
     setTasks((prev) =>
@@ -346,6 +413,16 @@ export function App() {
           >
             Settings
           </a>
+          <a
+            {...linkProps({ name: "glance" }, navigate)}
+            className={
+              route.name === "glance"
+                ? "text-[var(--color-fg)]"
+                : "text-[var(--color-muted)] hover:text-[var(--color-fg)]"
+            }
+          >
+            Glance
+          </a>
         </nav>
 
         <button
@@ -359,6 +436,15 @@ export function App() {
         </button>
       </header>
 
+      {(!online || queued > 0) && (
+        <p className="mb-4 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-xs">
+          {!online && <strong>Offline. </strong>}
+          {queued > 0
+            ? `${queued} capture${queued === 1 ? "" : "s"} saved locally — they will sync automatically.`
+            : "Captures are saved locally and sync when you reconnect."}
+        </p>
+      )}
+
       {TERM_DATES_UNCONFIRMED && (
         <p className="mb-5 rounded-md border border-amber-700/50 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
           <strong>Term dates unconfirmed.</strong> Week numbers are provisional
@@ -367,7 +453,26 @@ export function App() {
         </p>
       )}
 
-      {route.name === "module" ? (
+      {route.name === "share" ? (
+        <ShareHandler
+          onCapture={async (text) => {
+            await capture(text);
+            navigate({ name: "today" });
+          }}
+        />
+      ) : route.name === "glance" ? (
+        <Glance
+          week={week}
+          debt={debt}
+          modules={modules}
+          next={next}
+          onCapture={() => setCapturing(true)}
+          onStart={(taskId) => {
+            const found = tasks.find((t) => t.id === taskId);
+            if (found) void startFocus(found);
+          }}
+        />
+      ) : route.name === "module" ? (
         (() => {
           const module = modules.find((m) => m.code === route.code);
           return module ? (
@@ -671,5 +776,54 @@ function Kbd({ children }: { children: React.ReactNode }) {
     <kbd className="rounded bg-[var(--color-surface)] px-1.5 py-0.5 text-[11px]">
       {children}
     </kbd>
+  );
+}
+
+/**
+ * Android share-target landing.
+ *
+ * Whatever was shared is pre-filled and saved on confirm rather than silently
+ * captured, because a share sheet fires easily by accident and a stream of
+ * junk tasks would be worse than one extra tap.
+ */
+function ShareHandler({
+  onCapture,
+}: {
+  onCapture: (text: string) => Promise<void>;
+}) {
+  const params = new URLSearchParams(window.location.search);
+  const shared = [params.get("title"), params.get("text"), params.get("url")]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  const [value, setValue] = useState(shared);
+
+  return (
+    <section className="my-8">
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-widest text-[var(--color-muted)]">
+        Capture shared text
+      </h2>
+      {shared ? (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (value.trim()) void onCapture(value);
+          }}
+        >
+          <input
+            autoFocus
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            className="w-full rounded-md border border-[var(--color-accent)] bg-[var(--color-surface)] px-4 py-3 outline-none"
+          />
+          <button className="mt-3 rounded-md border border-[var(--color-accent)] px-4 py-2 text-sm">
+            Save task
+          </button>
+        </form>
+      ) : (
+        <Empty>Nothing was shared.</Empty>
+      )}
+    </section>
   );
 }

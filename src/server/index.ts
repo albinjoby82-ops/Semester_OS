@@ -10,6 +10,7 @@ import { sessionsRoute } from "./routes/sessions";
 import { assignmentsRoute } from "./routes/assignments";
 import { nextRoute } from "./routes/next";
 import { googleRoute } from "./routes/google";
+import { whatsappRoute } from "./routes/whatsapp";
 
 export interface Env {
   DB: D1Database;
@@ -18,6 +19,12 @@ export interface Env {
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   GOOGLE_REDIRECT_URI?: string;
+  /** WhatsApp Cloud API capture. Also set via `wrangler secret put`. */
+  WHATSAPP_VERIFY_TOKEN?: string;
+  WHATSAPP_TOKEN?: string;
+  WHATSAPP_PHONE_ID?: string;
+  /** Comma-separated msisdns permitted to create tasks. */
+  WHATSAPP_ALLOWED_FROM?: string;
 }
 
 export type AppContext = {
@@ -45,10 +52,30 @@ app.route("/api/sessions", sessionsRoute);
 app.route("/api/assignments", assignmentsRoute);
 app.route("/api/next", nextRoute);
 app.route("/api/google", googleRoute);
+app.route("/api/whatsapp", whatsappRoute);
 
 app.onError((err, c) => {
   console.error("Unhandled API error", err);
   return c.json({ error: "Internal error" }, 500);
+});
+
+/**
+ * SPA fallback.
+ *
+ * `assets.not_found_handling` only applies when there is NO Worker script.
+ * Because this Worker exists, an asset miss falls through to Hono instead,
+ * which would 404 every client route -- so deep links and refreshes break in
+ * production while working perfectly under the dev server.
+ *
+ * Serving the shell here fixes that. API paths are excluded so a mistyped
+ * endpoint still returns an honest 404 rather than a page of HTML.
+ */
+app.get("*", async (c) => {
+  if (c.req.path.startsWith("/api/")) {
+    return c.json({ error: "Not found" }, 404);
+  }
+  const url = new URL(c.req.url);
+  return c.env.ASSETS.fetch(new Request(new URL("/index.html", url.origin)));
 });
 
 export default {
