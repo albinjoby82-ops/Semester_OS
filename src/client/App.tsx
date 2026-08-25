@@ -444,6 +444,12 @@ export function App() {
           </div>
           <button onClick={() => setCapturing(true)} className="mobile-capture" aria-label="Add a task">＋</button>
         </header>
+        <nav className="mobile-route-nav" aria-label="Workspace navigation">
+          <a {...linkProps({ name: "today" }, navigate)} className={route.name === "today" ? "is-active" : ""}>Today</a>
+          <a {...linkProps({ name: "assessments" }, navigate)} className={route.name === "assessments" ? "is-active" : ""}>Assessments</a>
+          <a {...linkProps({ name: "settings" }, navigate)} className={route.name === "settings" ? "is-active" : ""}>Settings</a>
+          <a {...linkProps({ name: "glance" }, navigate)} className={route.name === "glance" ? "is-active" : ""}>Glance</a>
+        </nav>
 
       {(!online || queued > 0) && (
         <p className="sync-alert border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-xs">

@@ -49,6 +49,7 @@ button { cursor: pointer; }
 .eyebrow { margin: 0 0 .38rem; color: #89958d; font-size: .7rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
 .workspace-header h1 { margin: 0; color: #26352d; font-family: Georgia, "Times New Roman", serif; font-size: clamp(2rem, 4vw, 2.85rem); font-weight: 500; letter-spacing: -.055em; line-height: 1; }
 .mobile-capture { display: none; }
+.mobile-route-nav { display: none; }
 
 .content-section { margin: 2.6rem 0; }
 .section-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: .82rem; }
@@ -101,6 +102,9 @@ button { cursor: pointer; }
   .app-main { padding: 2.1rem 1.1rem 3rem; }
   .workspace-header { margin-bottom: 1.85rem; }.workspace-header h1 { font-size: 2.1rem; }
   .mobile-capture { display: grid; width: 2.2rem; height: 2.2rem; place-items: center; border: 0; border-radius: .72rem; background: #557d68; color: #fff; font-size: 1.3rem; box-shadow: 0 7px 15px rgba(59, 99, 75, .17); }
+  .mobile-route-nav { display: flex; gap: .35rem; margin: -1rem 0 1.45rem; overflow-x: auto; padding-bottom: .1rem; }
+  .mobile-route-nav a { flex: 0 0 auto; padding: .42rem .66rem; border-radius: .55rem; color: #77837c; font-size: .74rem; font-weight: 680; text-decoration: none; }
+  .mobile-route-nav a.is-active { background: #e3eee5; color: #497158; }
   .overview-grid { grid-template-columns: 1fr; margin-bottom: 2.15rem; }
   .next-action { padding: 1.3rem; }.content-section { margin: 2.15rem 0; }
 }
