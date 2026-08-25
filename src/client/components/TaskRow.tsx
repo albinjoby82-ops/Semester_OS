@@ -35,7 +35,7 @@ export function TaskRow({
   const isDone = task.status === "done" || task.status === "submitted";
 
   return (
-    <li className="group flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 sm:px-4">
+    <li className="task-row group flex flex-wrap items-center gap-x-3 gap-y-1 sm:px-4">
       <button
         onClick={() => onToggleDone(task)}
         aria-label={isDone ? `Reopen ${task.title}` : `Complete ${task.title}`}

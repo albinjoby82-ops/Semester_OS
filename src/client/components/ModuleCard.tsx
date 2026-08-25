@@ -29,7 +29,7 @@ export function ModuleCard({ module }: { module: ModuleView }) {
     g.gradedCount > 0 ? requiredMarkForTarget(g, TARGET) : null;
 
   return (
-    <article className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+    <article className="module-card rounded-md border border-[var(--color-border)]">
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="font-mono text-sm font-semibold" style={{ color }}>
           {module.code}

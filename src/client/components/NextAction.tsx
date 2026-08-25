@@ -25,8 +25,8 @@ export function NextAction({
 
   if (!recommended) {
     return (
-      <section className="my-7 rounded-md border border-dashed border-[var(--color-border)] px-4 py-6 text-center text-sm text-[var(--color-muted)]">
-        Nothing open. Press <kbd>Q</kbd> to capture something.
+      <section className="empty-state">
+        Your next step will appear here. Add a task to get started.
       </section>
     );
   }
@@ -35,10 +35,10 @@ export function NextAction({
   const color = module ? colorFor(module.colorToken) : "var(--color-accent)";
 
   return (
-    <section className="my-7 rounded-md border border-[var(--color-accent)]/50 bg-[var(--color-surface)] p-4">
+    <section className="next-action">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-[var(--color-muted)]">
-          What should I do?
+        <h2 className="action-label">
+          Your next useful step
         </h2>
         {minutesAvailable != null && (
           <span className="text-[11px] text-[var(--color-muted)]">
@@ -72,7 +72,7 @@ export function NextAction({
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button
           onClick={() => onStart(task.id)}
-          className="rounded-md border border-[var(--color-accent)] bg-[var(--color-accent)]/15 px-5 py-2 text-sm font-medium"
+          className="action-button px-5 py-2 text-sm font-medium"
         >
           Start
         </button>

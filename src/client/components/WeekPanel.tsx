@@ -29,7 +29,7 @@ export function WeekPanel({
   const hasAllocation = week.allocations.some((a) => a.plannedHours > 0);
 
   return (
-    <section className="my-7 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+    <section className="week-panel border border-[var(--color-border)]">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-xs font-semibold uppercase tracking-widest text-[var(--color-muted)]">
           This week

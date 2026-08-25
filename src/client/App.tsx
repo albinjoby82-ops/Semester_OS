@@ -368,76 +368,85 @@ export function App() {
     </ul>
   );
 
+  const dateLabel = now.toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-8 sm:py-10">
-      <header className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--color-border)] bg-white/80 px-4 py-3 shadow-[0_10px_30px_rgba(63,82,70,0.05)] backdrop-blur sm:px-5">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-[var(--color-fg)] sm:text-2xl">
-            Semester <span className="text-[var(--color-accent)]">OS</span>
-          </h1>
-          <p className="mt-0.5 text-sm text-[var(--color-muted)]">
-            {CURRENT_TERM.label}
-            {currentWeek
-              ? ` · Week ${currentWeek} of ${CURRENT_TERM.teachingWeeks}`
-              : " · outside teaching weeks"}
-          </p>
-        </div>
-        <nav className="order-3 flex w-full items-center gap-1 border-t border-[var(--color-border)] pt-3 text-sm sm:order-none sm:w-auto sm:border-0 sm:pt-0">
+    <div className="app-shell">
+      <aside className="side-rail">
+        <a {...linkProps({ name: "today" }, navigate)} className="brand-mark">
+          <span className="brand-orb">S</span>
+          <span>semester<span>os</span></span>
+        </a>
+        <p className="rail-term">
+          {CURRENT_TERM.label}
+          {currentWeek ? ` · Week ${currentWeek}` : " · Setup"}
+        </p>
+        <nav className="side-nav" aria-label="Main navigation">
           <a
             {...linkProps({ name: "today" }, navigate)}
             className={
               route.name === "today"
-                ? "rounded-full bg-[#eaf3ed] px-3 py-1.5 font-medium text-[var(--color-accent)]"
-                : "rounded-full px-3 py-1.5 text-[var(--color-muted)] hover:bg-[#f0f4ef] hover:text-[var(--color-fg)]"
+                ? "nav-link is-active"
+                : "nav-link"
             }
           >
-            Today
+            <span className="nav-icon">⌂</span> Today
           </a>
           <a
             {...linkProps({ name: "assessments" }, navigate)}
             className={
               route.name === "assessments"
-                ? "rounded-full bg-[#eaf3ed] px-3 py-1.5 font-medium text-[var(--color-accent)]"
-                : "rounded-full px-3 py-1.5 text-[var(--color-muted)] hover:bg-[#f0f4ef] hover:text-[var(--color-fg)]"
+                ? "nav-link is-active"
+                : "nav-link"
             }
           >
-            Assessments
+            <span className="nav-icon">◒</span> Assessments
           </a>
           <a
             {...linkProps({ name: "settings" }, navigate)}
             className={
               route.name === "settings"
-                ? "rounded-full bg-[#eaf3ed] px-3 py-1.5 font-medium text-[var(--color-accent)]"
-                : "rounded-full px-3 py-1.5 text-[var(--color-muted)] hover:bg-[#f0f4ef] hover:text-[var(--color-fg)]"
+                ? "nav-link is-active"
+                : "nav-link"
             }
           >
-            Settings
+            <span className="nav-icon">⚙</span> Settings
           </a>
           <a
             {...linkProps({ name: "glance" }, navigate)}
             className={
               route.name === "glance"
-                ? "rounded-full bg-[#eaf3ed] px-3 py-1.5 font-medium text-[var(--color-accent)]"
-                : "rounded-full px-3 py-1.5 text-[var(--color-muted)] hover:bg-[#f0f4ef] hover:text-[var(--color-fg)]"
+                ? "nav-link is-active"
+                : "nav-link"
             }
           >
-            Glance
+            <span className="nav-icon">◌</span> Glance
           </a>
         </nav>
-
         <button
           onClick={() => setCapturing(true)}
-          className="rounded-full border border-[#cfe0d4] bg-[#edf6ef] px-4 py-2 text-sm font-medium text-[#4f7f68] shadow-sm hover:border-[var(--color-accent)] hover:bg-[#e3f0e7]"
+          className="capture-button"
         >
-          + Quick task{" "}
-          <kbd className="ml-1 rounded bg-[var(--color-bg)] px-1 text-[10px] text-[var(--color-muted)]">
-            Q
-          </kbd>
+          <span>＋</span> Add a task <kbd>Q</kbd>
         </button>
-      </header>
+        <p className="rail-note">A calm place to keep the term in view.</p>
+      </aside>
+
+      <main className="app-main">
+        <header className="workspace-header">
+          <div>
+            <p className="eyebrow">{dateLabel}</p>
+            <h1>{route.name === "today" ? "Your day, at a glance." : "Semester workspace"}</h1>
+          </div>
+          <button onClick={() => setCapturing(true)} className="mobile-capture" aria-label="Add a task">＋</button>
+        </header>
 
       {(!online || queued > 0) && (
-        <p className="mb-4 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-xs">
+        <p className="sync-alert border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-xs">
           {!online && <strong>Offline. </strong>}
           {queued > 0
             ? `${queued} capture${queued === 1 ? "" : "s"} saved locally — they will sync automatically.`
@@ -446,10 +455,9 @@ export function App() {
       )}
 
       {TERM_DATES_UNCONFIRMED && (
-        <p className="mb-5 rounded-md border border-amber-700/50 bg-amber-950/30 px-3 py-2 text-xs text-amber-200">
-          <strong>Term dates unconfirmed.</strong> Week numbers are provisional
-          until the real UCD Autumn 2026 start date and study week are set in{" "}
-          <code>src/shared/term-config.ts</code>.
+        <p className="setup-alert">
+          <strong>Term dates need confirming.</strong> Week numbers are shown as
+          provisional until your confirmed semester start date is added.
         </p>
       )}
 
@@ -537,46 +545,44 @@ export function App() {
             onOpenModule={(code) => navigate({ name: "module", code })}
           />
         </Section>
+      ) : error ? (
+        <DataUnavailable onRetry={() => { setLoading(true); void load(); }} />
       ) : (
         <>
         {week && (
           <OverloadHorizon horizon={week.horizon} currentWeek={week.currentWeek} />
         )}
 
-        {error && (
-          <p className="my-4 rounded-md border border-rose-800 bg-rose-950/40 px-3 py-2 text-sm text-rose-200">
-            {error}
-          </p>
-        )}
-
         {loading ? (
-          <p className="my-10 text-sm text-[var(--color-muted)]">Loading…</p>
+          <p className="loading-state">Opening your workspace…</p>
         ) : (
           <>
-            <NextAction
-              recommended={next?.recommended ?? null}
-              minutesAvailable={next?.minutesAvailable ?? null}
-              module={
-                next?.recommended?.task.moduleId
-                  ? moduleById.get(next.recommended.task.moduleId)
-                  : undefined
-              }
-              onStart={(taskId) => {
-                const found = tasks.find((t) => t.id === taskId);
-                if (found) void startFocus(found);
-              }}
-            />
-
-            {week && (
-              <WeekPanel
-                week={week}
-                areas={areas}
-                onSaveAllocations={async (allocations) => {
-                  await api.setAllocations(allocations);
-                  void load();
+            <div className="overview-grid">
+              <NextAction
+                recommended={next?.recommended ?? null}
+                minutesAvailable={next?.minutesAvailable ?? null}
+                module={
+                  next?.recommended?.task.moduleId
+                    ? moduleById.get(next.recommended.task.moduleId)
+                    : undefined
+                }
+                onStart={(taskId) => {
+                  const found = tasks.find((t) => t.id === taskId);
+                  if (found) void startFocus(found);
                 }}
               />
-            )}
+
+              {week && (
+                <WeekPanel
+                  week={week}
+                  areas={areas}
+                  onSaveAllocations={async (allocations) => {
+                    await api.setAllocations(allocations);
+                    void load();
+                  }}
+                />
+              )}
+            </div>
 
             {/* Academic debt: expected work that should already be done. */}
             {debt && debt.count > 0 && (
@@ -730,6 +736,7 @@ export function App() {
         onClose={() => setCapturing(false)}
         onSave={(raw) => void capture(raw)}
       />
+      </main>
     </div>
   );
 }
@@ -746,17 +753,12 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="my-7">
-      <h2
-        className="mb-2 text-xs font-semibold uppercase tracking-widest"
-        style={{
-          color: tone === "danger" ? "#fb7185" : "var(--color-muted)",
-        }}
-      >
-        {title}
-      </h2>
+    <section className={`content-section${tone === "danger" ? " is-danger" : ""}`}>
+      <div className="section-heading">
+        <h2>{title}</h2>
+      </div>
       {note && (
-        <p className="mb-2 text-xs text-[var(--color-muted)]">{note}</p>
+        <p className="section-note">{note}</p>
       )}
       {children}
     </section>
@@ -765,7 +767,7 @@ function Section({
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-md border border-dashed border-[var(--color-border)] px-4 py-6 text-center text-sm text-[var(--color-muted)]">
+    <p className="empty-state">
       {children}
     </p>
   );
@@ -773,9 +775,24 @@ function Empty({ children }: { children: React.ReactNode }) {
 
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="rounded bg-[var(--color-surface)] px-1.5 py-0.5 text-[11px]">
+    <kbd className="keycap">
       {children}
     </kbd>
+  );
+}
+
+function DataUnavailable({ onRetry }: { onRetry: () => void }) {
+  return (
+    <section className="data-unavailable">
+      <div className="error-icon">!</div>
+      <h2>Your workspace isn&apos;t ready yet</h2>
+      <p>
+        We couldn&apos;t load your semester data. If this is a new deployment,
+        the database still needs its first setup. Once that&apos;s done, your tasks
+        and modules will appear here.
+      </p>
+      <button onClick={onRetry}>Try again</button>
+    </section>
   );
 }
 

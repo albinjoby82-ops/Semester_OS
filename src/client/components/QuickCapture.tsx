@@ -38,7 +38,7 @@ export function QuickCapture({ open, modules, onClose, onSave }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 px-4 pt-[18vh]"
+      className="quick-capture-overlay fixed inset-0 z-50 flex items-start justify-center px-4 pt-[18vh]"
       onMouseDown={onClose}
     >
       <div
@@ -60,7 +60,7 @@ export function QuickCapture({ open, modules, onClose, onSave }: Props) {
               if (event.key === "Escape") onClose();
             }}
             placeholder="What needs doing?"
-            className="w-full rounded-lg border border-[var(--color-accent)] bg-[var(--color-surface)] px-4 py-3.5 text-base outline-none"
+            className="quick-capture-input w-full rounded-lg border border-[var(--color-accent)] bg-[var(--color-surface)] px-5 py-4 text-base outline-none"
           />
         </form>
 
