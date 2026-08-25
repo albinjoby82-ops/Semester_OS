@@ -3,7 +3,7 @@ import type { WeekCapacity, OverloadWarning } from "../../shared/capacity";
 import type { DriftReport, TrailingRatio } from "../../shared/drift";
 import type { Calibration } from "../../shared/calibration";
 import type { StageKey } from "../../shared/radar";
-import type { WireModuleRisk, WireRadarItem } from "./wire";
+import type { WireModuleRisk, WireNextView, WireRadarItem } from "./wire";
 
 export interface Assessment {
   id: string;
@@ -107,6 +107,19 @@ export interface ActiveSession {
   task: Task | null;
 }
 
+export interface FixedCommitment {
+  id: string;
+  title: string;
+  areaId: string;
+  moduleId: string | null;
+  dayOfWeek: number;
+  startMinute: number;
+  endMinute: number;
+  fromWeek: number | null;
+  toWeek: number | null;
+  active: boolean;
+}
+
 export interface DebtView {
   currentWeek: number | null;
   items: Task[];
@@ -174,6 +187,18 @@ export const api = {
       body: JSON.stringify({ complete }),
     }),
   debt: () => json<DebtView>("/api/week/debt"),
+  commitments: () => json<FixedCommitment[]>("/api/week/commitments"),
+
+  next: (minutesAvailable: number | null) =>
+    json<WireNextView>(
+      `/api/next${minutesAvailable == null ? "" : `?available=${minutesAvailable}`}`,
+    ),
+
+  setPriority: (taskId: string, points: number | null) =>
+    json<Task>("/api/next/override", {
+      method: "POST",
+      body: JSON.stringify({ taskId, points }),
+    }),
 
   setAllocations: (
     allocations: { areaId: string; plannedHours: number }[],

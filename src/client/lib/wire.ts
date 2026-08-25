@@ -58,6 +58,39 @@ export interface WireRadarItem {
   risk: WireAssessmentRisk;
 }
 
+export interface WireScoreComponent {
+  key: string;
+  label: string;
+  points: number;
+}
+
+export interface WireScoredTask {
+  task: {
+    id: string;
+    title: string;
+    areaId: string;
+    moduleId: string | null;
+    assignmentId: string | null;
+    status: string;
+    dueAt: string | null;
+    estimatedMinutes: number | null;
+    isRequiredWeekly: boolean;
+    priorityOverride: number | null;
+  };
+  score: number;
+  components: WireScoreComponent[];
+  fits: boolean;
+  adjustments: WireScoreComponent[];
+  reason: string;
+}
+
+export interface WireNextView {
+  recommended: WireScoredTask | null;
+  ranked: WireScoredTask[];
+  minutesAvailable: number | null;
+  universityAtRisk: boolean;
+}
+
 /** Parse an optional ISO string to a Date, tolerating null. */
 export const toDate = (iso: string | null | undefined): Date | null =>
   iso ? new Date(iso) : null;

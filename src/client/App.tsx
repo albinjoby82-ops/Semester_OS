@@ -12,7 +12,8 @@ import {
   type WeekView,
 } from "./lib/api";
 import type { StageKey } from "../shared/radar";
-import type { WireRadarItem } from "./lib/wire";
+import type { WireNextView, WireRadarItem } from "./lib/wire";
+import { minutesUntilNextCommitment } from "./lib/availability";
 import { STAGE_FIELD } from "./lib/stages";
 import { linkProps, useRoute } from "./lib/router";
 import { daysBetween, formatMinutes } from "./lib/format";
@@ -24,6 +25,7 @@ import { ModuleCard } from "./components/ModuleCard";
 import { FocusMode } from "./components/FocusMode";
 import { ModulePage } from "./components/ModulePage";
 import { AssessmentRadar } from "./components/AssessmentRadar";
+import { NextAction } from "./components/NextAction";
 import type { Calibration } from "../shared/calibration";
 
 export function App() {
@@ -35,6 +37,7 @@ export function App() {
   const [active, setActive] = useState<ActiveSession | null>(null);
   const [calibration, setCalibration] = useState<Calibration | null>(null);
   const [radar, setRadar] = useState<WireRadarItem[]>([]);
+  const [next, setNext] = useState<WireNextView | null>(null);
   const { route, navigate } = useRoute();
   const [error, setError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
@@ -42,7 +45,7 @@ export function App() {
 
   const load = useCallback(async () => {
     try {
-      const [m, a, t, w, d, s, cal, r] = await Promise.all([
+      const [m, a, t, w, d, s, cal, r, commitments] = await Promise.all([
         api.modules(),
         api.areas(),
         api.tasks(),
@@ -51,8 +54,18 @@ export function App() {
         api.activeSession(),
         api.calibration(),
         api.radar(14, true),
+        api.commitments(),
       ]);
       setRadar(r);
+
+      // The gap to the next commitment is computed here, in local time: the
+      // Worker runs in UTC and would be wrong by the offset.
+      const available = minutesUntilNextCommitment(
+        commitments,
+        w.currentWeek,
+        new Date(),
+      );
+      setNext(await api.next(available));
       setModules(m);
       setAreas(a);
       setTasks(t);
@@ -363,6 +376,20 @@ export function App() {
           <p className="my-10 text-sm text-[var(--color-muted)]">Loading…</p>
         ) : (
           <>
+            <NextAction
+              recommended={next?.recommended ?? null}
+              minutesAvailable={next?.minutesAvailable ?? null}
+              module={
+                next?.recommended?.task.moduleId
+                  ? moduleById.get(next.recommended.task.moduleId)
+                  : undefined
+              }
+              onStart={(taskId) => {
+                const found = tasks.find((t) => t.id === taskId);
+                if (found) void startFocus(found);
+              }}
+            />
+
             {week && (
               <WeekPanel
                 week={week}

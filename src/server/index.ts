@@ -8,6 +8,7 @@ import { tasksRoute } from "./routes/tasks";
 import { weekRoute } from "./routes/week";
 import { sessionsRoute } from "./routes/sessions";
 import { assignmentsRoute } from "./routes/assignments";
+import { nextRoute } from "./routes/next";
 
 export interface Env {
   DB: D1Database;
@@ -37,6 +38,7 @@ app.route("/api/tasks", tasksRoute);
 app.route("/api/week", weekRoute);
 app.route("/api/sessions", sessionsRoute);
 app.route("/api/assignments", assignmentsRoute);
+app.route("/api/next", nextRoute);
 
 app.onError((err, c) => {
   console.error("Unhandled API error", err);
