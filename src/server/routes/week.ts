@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { and, eq, isNull, lte, or } from "drizzle-orm";
 import {
   assignments,
+  calendarEvents,
   fixedCommitments,
   modules,
   overrides,
@@ -25,6 +26,8 @@ import {
   type WorkItem,
 } from "../../shared/capacity";
 import { computeDrift, trailingRatio, type ActualHours } from "../../shared/drift";
+import { busyHoursInWindow, type CalendarEventLike } from "../../shared/calendar";
+import { dateRangeForWeek } from "../../shared/term-week";
 
 export const weekRoute = new Hono<AppContext>();
 
@@ -107,13 +110,14 @@ weekRoute.get("/", async (c) => {
   const currentWeek = teachingWeekForDate(now, CURRENT_TERM);
   const config = await loadCapacityConfig(db);
 
-  const [blockRows, taskRows, assignmentRows, moduleRows, allocationRows] =
+  const [blockRows, taskRows, assignmentRows, moduleRows, allocationRows, eventRows] =
     await Promise.all([
       db.select().from(fixedCommitments),
       db.select().from(tasks),
       db.select().from(assignments),
       db.select().from(modules),
       db.select().from(weekAllocations),
+      db.select().from(calendarEvents),
     ]);
 
   const moduleCodeById = new Map(moduleRows.map((m) => [m.id, m.code]));
@@ -150,11 +154,34 @@ weekRoute.get("/", async (c) => {
     isSubmitted: a.isSubmitted,
   }));
 
+  /**
+   * Google Calendar is the source of truth for WHEN once connected, so real
+   * events replace the hand-entered timetable rather than being added to it
+   * -- counting both would double-book every lecture.
+   */
+  const events: CalendarEventLike[] = eventRows.map((e) => ({
+    id: e.id,
+    title: e.title,
+    startAt: e.startAt,
+    endAt: e.endAt,
+    isAllDay: e.isAllDay,
+    moduleId: e.moduleId,
+    areaId: e.areaId,
+  }));
+  const calendarConnected = events.length > 0;
+
+  const fixedHoursFor = (week: number): number | undefined => {
+    if (!calendarConnected) return undefined;
+    const range = dateRangeForWeek(week, CURRENT_TERM);
+    return busyHoursInWindow(events, range);
+  };
+
   const horizon = buildHorizon(CURRENT_TERM, {
     blocks,
     items,
     assessments: assessmentWindows,
     config,
+    fixedHoursFor,
   });
 
   const thisWeek =
@@ -165,6 +192,7 @@ weekRoute.get("/", async (c) => {
           items,
           assessments: assessmentWindows,
           config,
+          fixedHoursOverride: fixedHoursFor(currentWeek),
         });
 
   // Drift, measured against the allocation set in Plan Week.
@@ -208,6 +236,9 @@ weekRoute.get("/", async (c) => {
     drift,
     trailing,
     actualsSource: source,
+    capacitySource: calendarConnected
+      ? ("calendar" as const)
+      : ("manual" as const),
     allocations,
     effort: effortBudget(totalStatedHours, CURRENT_TERM, config),
     config,

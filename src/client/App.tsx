@@ -9,6 +9,7 @@ import {
   type ModuleView,
   type Task,
   type ActiveSession,
+  type GoogleStatusView,
   type WeekView,
 } from "./lib/api";
 import type { StageKey } from "../shared/radar";
@@ -26,6 +27,8 @@ import { FocusMode } from "./components/FocusMode";
 import { ModulePage } from "./components/ModulePage";
 import { AssessmentRadar } from "./components/AssessmentRadar";
 import { NextAction } from "./components/NextAction";
+import { GooglePanel } from "./components/GooglePanel";
+import { minutesUntilNextEvent } from "../shared/calendar";
 import type { Calibration } from "../shared/calibration";
 
 export function App() {
@@ -38,6 +41,9 @@ export function App() {
   const [calibration, setCalibration] = useState<Calibration | null>(null);
   const [radar, setRadar] = useState<WireRadarItem[]>([]);
   const [next, setNext] = useState<WireNextView | null>(null);
+  const [google, setGoogle] = useState<GoogleStatusView | null>(null);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const [googleMessage, setGoogleMessage] = useState<string | null>(null);
   const { route, navigate } = useRoute();
   const [error, setError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
@@ -45,7 +51,8 @@ export function App() {
 
   const load = useCallback(async () => {
     try {
-      const [m, a, t, w, d, s, cal, r, commitments] = await Promise.all([
+      const [m, a, t, w, d, s, cal, r, commitments, gStatus, events] =
+        await Promise.all([
         api.modules(),
         api.areas(),
         api.tasks(),
@@ -55,16 +62,22 @@ export function App() {
         api.calibration(),
         api.radar(14, true),
         api.commitments(),
+        api.googleStatus(),
+        api.calendarEvents(),
       ]);
       setRadar(r);
 
+      setGoogle(gStatus);
+
       // The gap to the next commitment is computed here, in local time: the
       // Worker runs in UTC and would be wrong by the offset.
-      const available = minutesUntilNextCommitment(
-        commitments,
-        w.currentWeek,
-        new Date(),
-      );
+      //
+      // Real calendar events win over the hand-entered timetable once
+      // Calendar is connected, matching how capacity is computed server-side.
+      const available =
+        events.length > 0
+          ? minutesUntilNextEvent(events, new Date())
+          : minutesUntilNextCommitment(commitments, w.currentWeek, new Date());
       setNext(await api.next(available));
       setModules(m);
       setAreas(a);
@@ -84,6 +97,21 @@ export function App() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // The OAuth callback redirects back with ?google=... Surface it, then strip
+  // it from the URL so a refresh does not replay a stale message.
+  useEffect(() => {
+    const param = new URLSearchParams(window.location.search).get("google");
+    if (!param) return;
+    setGoogleMessage(
+      param === "connected"
+        ? "Google connected. Sync your calendar to use it for capacity."
+        : `Google connection failed: ${param.replace(/_/g, " ")}.`,
+    );
+    const url = new URL(window.location.href);
+    url.searchParams.delete("google");
+    window.history.replaceState(null, "", url.pathname + url.search);
+  }, []);
 
   // Q from anywhere. Capture has to be faster than opening anything else.
   useEffect(() => {
@@ -308,6 +336,16 @@ export function App() {
           >
             Assessments
           </a>
+          <a
+            {...linkProps({ name: "settings" }, navigate)}
+            className={
+              route.name === "settings"
+                ? "text-[var(--color-fg)]"
+                : "text-[var(--color-muted)] hover:text-[var(--color-fg)]"
+            }
+          >
+            Settings
+          </a>
         </nav>
 
         <button
@@ -345,11 +383,45 @@ export function App() {
                 await api.updateAssignment(id, { dueAt });
                 void load();
               }}
+              googleConnected={Boolean(google?.connected)}
             />
           ) : (
             <Empty>No module with code {route.code}.</Empty>
           );
         })()
+      ) : route.name === "settings" ? (
+        <GooglePanel
+          status={google}
+          busy={googleBusy}
+          message={googleMessage}
+          onSync={async () => {
+            setGoogleBusy(true);
+            setGoogleMessage(null);
+            try {
+              const result = await api.syncCalendar();
+              setGoogleMessage(
+                `Imported ${result.imported} events (${result.skipped} skipped).`,
+              );
+              void load();
+            } catch (cause) {
+              setGoogleMessage(
+                cause instanceof Error ? cause.message : "Sync failed",
+              );
+            } finally {
+              setGoogleBusy(false);
+            }
+          }}
+          onDisconnect={async () => {
+            setGoogleBusy(true);
+            try {
+              await api.disconnectGoogle();
+              setGoogleMessage("Disconnected.");
+              void load();
+            } finally {
+              setGoogleBusy(false);
+            }
+          }}
+        />
       ) : route.name === "assessments" ? (
         <Section
           title={`Assessment radar (${radar.length})`}

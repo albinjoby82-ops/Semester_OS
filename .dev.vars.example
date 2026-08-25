@@ -1,2 +1,10 @@
 # Copy to .dev.vars for local dev. Never commit .dev.vars.
 SESSION_SECRET=dev-only-change-me
+
+# Google OAuth (Phase 2: Calendar + Drive, read-only).
+# Create at console.cloud.google.com -> APIs & Services -> Credentials.
+# Redirect URI must match exactly, e.g. http://localhost:5173/api/google/callback
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+# Optional: override the redirect URI. Defaults to <origin>/api/google/callback
+GOOGLE_REDIRECT_URI=

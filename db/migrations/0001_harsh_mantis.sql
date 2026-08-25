@@ -1,0 +1,1 @@
+ALTER TABLE `modules` ADD `drive_folder_id` text;

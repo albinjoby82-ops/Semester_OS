@@ -131,10 +131,17 @@ export function capacityForWeek(
     items: readonly WorkItem[];
     assessments: readonly AssessmentWindow[];
     config?: CapacityConfig;
+    /**
+     * Real busy hours from Google Calendar. When present this REPLACES the
+     * hand-entered timetable rather than adding to it -- counting both would
+     * double-book every lecture.
+     */
+    fixedHoursOverride?: number;
   },
 ): WeekCapacity {
   const config = options.config ?? DEFAULT_CAPACITY;
-  const fixedHours = fixedHoursForWeek(options.blocks, week);
+  const fixedHours =
+    options.fixedHoursOverride ?? fixedHoursForWeek(options.blocks, week);
   const freeHours = Math.max(0, config.realisticWeeklyHours - fixedHours);
 
   const byAreaMap = new Map<string, number>();
@@ -181,10 +188,15 @@ export function buildHorizon(
     items: readonly WorkItem[];
     assessments: readonly AssessmentWindow[];
     config?: CapacityConfig;
+    /** Per-week busy hours from Calendar, when connected. */
+    fixedHoursFor?: (week: number) => number | undefined;
   },
 ): WeekCapacity[] {
   return allTeachingWeeks(term).map((week) =>
-    capacityForWeek(week, options),
+    capacityForWeek(week, {
+      ...options,
+      fixedHoursOverride: options.fixedHoursFor?.(week),
+    }),
   );
 }
 

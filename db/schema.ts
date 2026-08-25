@@ -68,6 +68,8 @@ export const modules = sqliteTable("modules", {
     .notNull()
     .default(false),
   colorToken: text("color_token").notNull().default("neutral"),
+  /** Google Drive folder this module maps to. Files stay in Drive. */
+  driveFolderId: text("drive_folder_id"),
   lastSyncedAt: text("last_synced_at"),
   createdAt: text("created_at").notNull().default(now),
 });

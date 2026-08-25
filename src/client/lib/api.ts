@@ -3,6 +3,7 @@ import type { WeekCapacity, OverloadWarning } from "../../shared/capacity";
 import type { DriftReport, TrailingRatio } from "../../shared/drift";
 import type { Calibration } from "../../shared/calibration";
 import type { StageKey } from "../../shared/radar";
+import type { ResourceType } from "../../shared/drive";
 import type { WireModuleRisk, WireNextView, WireRadarItem } from "./wire";
 
 export interface Assessment {
@@ -45,6 +46,7 @@ export interface ModuleView {
   attendanceMandatory: boolean;
   colorToken: string;
   ucdUrl: string | null;
+  driveFolderId: string | null;
   assessments: Assessment[];
   gradeSummary: GradeSummary;
   risk: WireModuleRisk;
@@ -120,6 +122,41 @@ export interface FixedCommitment {
   active: boolean;
 }
 
+export interface GoogleStatusView {
+  configured: boolean;
+  connected: boolean;
+  scopes: string[];
+  expiresAt: number | null;
+  lastSync: string | null;
+}
+
+export interface DriveFolder {
+  id: string;
+  name: string;
+}
+
+export interface ResourceRow {
+  id: string;
+  moduleId: string;
+  title: string;
+  type: ResourceType;
+  googleDriveFileId: string | null;
+  weekNumber: number | null;
+  source: string;
+  url: string | null;
+}
+
+export interface CalendarEventRow {
+  id: string;
+  googleEventId: string | null;
+  title: string;
+  startAt: string;
+  endAt: string;
+  isAllDay: boolean;
+  moduleId: string | null;
+  areaId: string | null;
+}
+
 export interface DebtView {
   currentWeek: number | null;
   items: Task[];
@@ -188,6 +225,36 @@ export const api = {
     }),
   debt: () => json<DebtView>("/api/week/debt"),
   commitments: () => json<FixedCommitment[]>("/api/week/commitments"),
+
+  googleStatus: () => json<GoogleStatusView>("/api/google/status"),
+  calendarEvents: () => json<CalendarEventRow[]>("/api/google/calendar/events"),
+
+  syncCalendar: () =>
+    json<{ imported: number; skipped: number }>("/api/google/calendar/sync", {
+      method: "POST",
+    }),
+
+  disconnectGoogle: () =>
+    json<{ ok: true }>("/api/google/disconnect", { method: "POST" }),
+
+  driveFolders: (query: string) =>
+    json<DriveFolder[]>(
+      `/api/google/drive/folders?q=${encodeURIComponent(query)}`,
+    ),
+
+  mapDrive: (code: string, folderId: string | null) =>
+    json<{ ok: true }>(`/api/google/drive/map/${code}`, {
+      method: "PUT",
+      body: JSON.stringify({ folderId }),
+    }),
+
+  indexDrive: (code: string) =>
+    json<{ indexed: number }>(`/api/google/drive/index/${code}`, {
+      method: "POST",
+    }),
+
+  moduleResources: (code: string) =>
+    json<ResourceRow[]>(`/api/google/drive/resources/${code}`),
 
   next: (minutesAvailable: number | null) =>
     json<WireNextView>(

@@ -127,6 +127,38 @@ describe("capacityForWeek", () => {
   });
 });
 
+describe("calendar override", () => {
+  const base = { blocks: [block(), block({ dayOfWeek: 2 })], items: [], assessments: [] };
+
+  it("replaces the hand-entered timetable rather than adding to it", () => {
+    // Blocks alone would be 4h. With Calendar connected the real figure wins;
+    // summing both would double-book every lecture.
+    const week = capacityForWeek(5, { ...base, fixedHoursOverride: 9 });
+    expect(week.fixedHours).toBe(9);
+    expect(week.freeHours).toBe(51);
+  });
+
+  it("falls back to the timetable when Calendar is not connected", () => {
+    expect(capacityForWeek(5, base).fixedHours).toBe(4);
+  });
+
+  it("treats a genuinely empty calendar week as zero, not as unset", () => {
+    // A week with no events really does have no fixed commitments; falling
+    // back to the manual blocks here would invent hours that do not exist.
+    expect(capacityForWeek(5, { ...base, fixedHoursOverride: 0 }).fixedHours).toBe(0);
+  });
+
+  it("applies per-week overrides across the horizon", () => {
+    const horizon = buildHorizon(term, {
+      ...base,
+      fixedHoursFor: (week) => (week === 3 ? 20 : undefined),
+    });
+    expect(horizon.find((w) => w.week === 3)!.fixedHours).toBe(20);
+    // Other weeks keep the manual timetable.
+    expect(horizon.find((w) => w.week === 4)!.fixedHours).toBe(4);
+  });
+});
+
 describe("assessmentWeightByWeek", () => {
   const window = (over: Partial<AssessmentWindow>): AssessmentWindow => ({
     moduleCode: "EEEN20020",

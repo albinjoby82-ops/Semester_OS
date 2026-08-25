@@ -9,10 +9,15 @@ import { weekRoute } from "./routes/week";
 import { sessionsRoute } from "./routes/sessions";
 import { assignmentsRoute } from "./routes/assignments";
 import { nextRoute } from "./routes/next";
+import { googleRoute } from "./routes/google";
 
 export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
+  /** Google OAuth. Set via `wrangler secret put`; never committed. */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+  GOOGLE_REDIRECT_URI?: string;
 }
 
 export type AppContext = {
@@ -39,6 +44,7 @@ app.route("/api/week", weekRoute);
 app.route("/api/sessions", sessionsRoute);
 app.route("/api/assignments", assignmentsRoute);
 app.route("/api/next", nextRoute);
+app.route("/api/google", googleRoute);
 
 app.onError((err, c) => {
   console.error("Unhandled API error", err);

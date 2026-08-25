@@ -8,6 +8,7 @@ import {
 } from "../../shared/grades";
 import { colorFor, describeDue, formatMinutes } from "../lib/format";
 import { SubmissionChecklist } from "./SubmissionChecklist";
+import { ModuleResources } from "./ModuleResources";
 
 const TARGETS = [40, 50, 60, 70];
 
@@ -17,6 +18,7 @@ export function ModulePage({
   onSaveGrade,
   onClearGrade,
   onPinDate,
+  googleConnected,
 }: {
   module: ModuleView;
   onToggleStage: (assessmentId: string, key: StageKey, next: boolean) => void;
@@ -27,6 +29,7 @@ export function ModulePage({
   ) => void;
   onClearGrade: (assessmentId: string) => void;
   onPinDate: (assessmentId: string, dueAt: string | null) => void;
+  googleConnected: boolean;
 }) {
   const [target, setTarget] = useState(60);
   const color = colorFor(module.colorToken);
@@ -131,6 +134,17 @@ export function ModulePage({
           />
         ))}
       </ul>
+
+      <h2 className="mt-6 mb-2 text-xs font-semibold uppercase tracking-widest text-[var(--color-muted)]">
+        Material
+      </h2>
+      <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+        <ModuleResources
+          code={module.code}
+          driveFolderId={module.driveFolderId}
+          googleConnected={googleConnected}
+        />
+      </div>
     </div>
   );
 }

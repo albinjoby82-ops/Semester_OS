@@ -9,7 +9,8 @@ import { useCallback, useEffect, useState } from "react";
 export type Route =
   | { name: "today" }
   | { name: "module"; code: string }
-  | { name: "assessments" };
+  | { name: "assessments" }
+  | { name: "settings" };
 
 export function parseRoute(pathname: string): Route {
   const moduleMatch = /^\/modules\/([A-Za-z0-9]+)\/?$/.exec(pathname);
@@ -17,6 +18,7 @@ export function parseRoute(pathname: string): Route {
     return { name: "module", code: moduleMatch[1].toUpperCase() };
   }
   if (/^\/assessments\/?$/.test(pathname)) return { name: "assessments" };
+  if (/^\/settings\/?$/.test(pathname)) return { name: "settings" };
   return { name: "today" };
 }
 
@@ -26,6 +28,8 @@ export function hrefFor(route: Route): string {
       return `/modules/${route.code}`;
     case "assessments":
       return "/assessments";
+    case "settings":
+      return "/settings";
     default:
       return "/";
   }
