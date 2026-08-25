@@ -90,6 +90,18 @@ button { cursor: pointer; }
 .data-unavailable p { margin: .65rem auto 1.25rem; color: #7f7773; font-size: .88rem; line-height: 1.55; }
 .data-unavailable button { padding: .65rem 1rem; border: 1px solid #d7b8af; border-radius: .65rem; background: #fff; color: #97564f; font-size: .8rem; font-weight: 700; }
 .data-unavailable button:hover { background: #fff5f1; }
+.whatsapp-panel { max-width: 43rem; margin: 1rem 0 2.5rem; padding: 1.45rem; border: 1px solid #d9e7dc; border-radius: 1.1rem; background: linear-gradient(145deg, #fbfdf9, #f1f8f1); box-shadow: 0 10px 25px rgba(58, 93, 67, .04); }
+.whatsapp-panel h2 { margin: .18rem 0 0; color: #294333; font-family: Georgia, serif; font-size: 1.35rem; font-weight: 500; letter-spacing: -.025em; }
+.panel-kicker { margin: 0; color: #5d8969; font-size: .67rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.whatsapp-panel > p { margin: 1rem 0; color: #596a60; font-size: .84rem; line-height: 1.6; }
+.status-dot { flex: 0 0 auto; padding: .34rem .54rem; border: 1px solid #ead9c4; border-radius: 999px; background: #fff9f0; color: #9a754d; font-size: .68rem; font-weight: 750; }
+.status-dot.is-ready { border-color: #cfe2d3; background: #eaf4eb; color: #4f7c5c; }
+.message-example { display: inline-block; padding: .62rem .8rem; border: 1px solid #d8e8db; border-radius: .7rem; background: #fff; color: #385743; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .78rem; box-shadow: 0 2px 4px rgba(47, 79, 56, .03); }
+.panel-muted { color: #839087 !important; font-size: .74rem !important; }
+.setup-list { margin: .95rem 0 1rem 1.1rem; color: #627168; font-size: .78rem; line-height: 1.75; }
+.setup-list code { overflow-wrap: anywhere; padding: .12rem .25rem; border-radius: .25rem; background: #e8f1e9; color: #4d7056; font-size: .68rem; }
+.secret-list { display: flex; flex-wrap: wrap; gap: .38rem; padding-top: .15rem; }
+.secret-list code { padding: .27rem .4rem; border-radius: .38rem; background: #e8f1e9; color: #486852; font-size: .66rem; }
 
 @media (max-width: 760px) {
   .app-shell { display: block; }

@@ -10,6 +10,7 @@ import {
   type Task,
   type ActiveSession,
   type GoogleStatusView,
+  type WhatsAppStatusView,
   type WeekView,
 } from "./lib/api";
 import type { StageKey } from "../shared/radar";
@@ -28,6 +29,7 @@ import { ModulePage } from "./components/ModulePage";
 import { AssessmentRadar } from "./components/AssessmentRadar";
 import { NextAction } from "./components/NextAction";
 import { GooglePanel } from "./components/GooglePanel";
+import { WhatsAppPanel } from "./components/WhatsAppPanel";
 import { Glance } from "./components/Glance";
 import {
   enqueue,
@@ -49,6 +51,7 @@ export function App() {
   const [radar, setRadar] = useState<WireRadarItem[]>([]);
   const [next, setNext] = useState<WireNextView | null>(null);
   const [google, setGoogle] = useState<GoogleStatusView | null>(null);
+  const [whatsapp, setWhatsapp] = useState<WhatsAppStatusView | null>(null);
   const [googleBusy, setGoogleBusy] = useState(false);
   const [googleMessage, setGoogleMessage] = useState<string | null>(null);
   const [queued, setQueued] = useState(0);
@@ -60,7 +63,7 @@ export function App() {
 
   const load = useCallback(async () => {
     try {
-      const [m, a, t, w, d, s, cal, r, commitments, gStatus, events] =
+      const [m, a, t, w, d, s, cal, r, commitments, gStatus, wStatus, events] =
         await Promise.all([
         api.modules(),
         api.areas(),
@@ -72,11 +75,13 @@ export function App() {
         api.radar(14, true),
         api.commitments(),
         api.googleStatus(),
+        api.whatsappStatus(),
         api.calendarEvents(),
       ]);
       setRadar(r);
 
       setGoogle(gStatus);
+      setWhatsapp(wStatus);
 
       // The gap to the next commitment is computed here, in local time: the
       // Worker runs in UTC and would be wrong by the offset.
@@ -509,38 +514,41 @@ export function App() {
           );
         })()
       ) : route.name === "settings" ? (
-        <GooglePanel
-          status={google}
-          busy={googleBusy}
-          message={googleMessage}
-          onSync={async () => {
-            setGoogleBusy(true);
-            setGoogleMessage(null);
-            try {
-              const result = await api.syncCalendar();
-              setGoogleMessage(
-                `Imported ${result.imported} events (${result.skipped} skipped).`,
-              );
-              void load();
-            } catch (cause) {
-              setGoogleMessage(
-                cause instanceof Error ? cause.message : "Sync failed",
-              );
-            } finally {
-              setGoogleBusy(false);
-            }
-          }}
-          onDisconnect={async () => {
-            setGoogleBusy(true);
-            try {
-              await api.disconnectGoogle();
-              setGoogleMessage("Disconnected.");
-              void load();
-            } finally {
-              setGoogleBusy(false);
-            }
-          }}
-        />
+        <>
+          <GooglePanel
+            status={google}
+            busy={googleBusy}
+            message={googleMessage}
+            onSync={async () => {
+              setGoogleBusy(true);
+              setGoogleMessage(null);
+              try {
+                const result = await api.syncCalendar();
+                setGoogleMessage(
+                  `Imported ${result.imported} events (${result.skipped} skipped).`,
+                );
+                void load();
+              } catch (cause) {
+                setGoogleMessage(
+                  cause instanceof Error ? cause.message : "Sync failed",
+                );
+              } finally {
+                setGoogleBusy(false);
+              }
+            }}
+            onDisconnect={async () => {
+              setGoogleBusy(true);
+              try {
+                await api.disconnectGoogle();
+                setGoogleMessage("Disconnected.");
+                void load();
+              } finally {
+                setGoogleBusy(false);
+              }
+            }}
+          />
+          <WhatsAppPanel status={whatsapp} />
+        </>
       ) : route.name === "assessments" ? (
         <Section
           title={`Assessment radar (${radar.length})`}

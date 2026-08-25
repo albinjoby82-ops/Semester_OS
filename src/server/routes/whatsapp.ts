@@ -13,8 +13,9 @@ import { teachingWeekForDate } from "../../shared/term-week";
  * share target, never a dependency: if Meta's setup is painful or the number
  * lapses, the share sheet still works with no third party involved.
  *
- * Requires three Worker secrets:
+ * Requires four Worker secrets:
  *   WHATSAPP_VERIFY_TOKEN  — any string; must match the webhook config
+ *   WHATSAPP_APP_SECRET    — verifies signed inbound requests from Meta
  *   WHATSAPP_TOKEN         — Cloud API access token, for sending replies
  *   WHATSAPP_PHONE_ID      — the sending phone number id
  *   WHATSAPP_ALLOWED_FROM  — comma-separated msisdns permitted to capture
@@ -70,9 +71,22 @@ whatsappRoute.post("/webhook", async (c) => {
     return c.json({ ok: true, ignored: "not configured" });
   }
 
+  const rawBody = await c.req.text();
+  const appSecret = c.env.WHATSAPP_APP_SECRET;
+  if (
+    appSecret &&
+    !(await validMetaSignature(
+      rawBody,
+      c.req.header("x-hub-signature-256"),
+      appSecret,
+    ))
+  ) {
+    return c.json({ ok: false, error: "Invalid webhook signature" }, 401);
+  }
+
   let payload: WhatsAppPayload;
   try {
-    payload = await c.req.json<WhatsAppPayload>();
+    payload = JSON.parse(rawBody) as WhatsAppPayload;
   } catch {
     return c.json({ ok: true, ignored: "unparseable body" });
   }
@@ -170,6 +184,53 @@ whatsappRoute.post("/webhook", async (c) => {
 
   return c.json({ ok: true, captured });
 });
+
+/** Safe status for Settings — no token material ever leaves the Worker. */
+whatsappRoute.get("/status", (c) => {
+  const allowed = (c.env.WHATSAPP_ALLOWED_FROM ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return c.json({
+    configured: Boolean(
+      c.env.WHATSAPP_VERIFY_TOKEN &&
+      c.env.WHATSAPP_TOKEN &&
+      c.env.WHATSAPP_PHONE_ID &&
+      allowed.length > 0,
+    ),
+    signatureValidation: Boolean(c.env.WHATSAPP_APP_SECRET),
+    allowedNumbers: allowed.length,
+  });
+});
+
+async function validMetaSignature(
+  body: string,
+  header: string | undefined,
+  appSecret: string,
+): Promise<boolean> {
+  if (!header?.startsWith("sha256=")) return false;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(appSecret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode(body),
+  );
+  const expected = `sha256=${[...new Uint8Array(signature)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("")}`;
+  if (expected.length !== header.length) return false;
+  let different = 0;
+  for (let index = 0; index < expected.length; index += 1) {
+    different |= expected.charCodeAt(index) ^ header.charCodeAt(index);
+  }
+  return different === 0;
+}
 
 function confirmation(
   title: string,

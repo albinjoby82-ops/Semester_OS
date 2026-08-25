@@ -130,6 +130,12 @@ export interface GoogleStatusView {
   lastSync: string | null;
 }
 
+export interface WhatsAppStatusView {
+  configured: boolean;
+  signatureValidation: boolean;
+  allowedNumbers: number;
+}
+
 export interface DriveFolder {
   id: string;
   name: string;
@@ -227,6 +233,7 @@ export const api = {
   commitments: () => json<FixedCommitment[]>("/api/week/commitments"),
 
   googleStatus: () => json<GoogleStatusView>("/api/google/status"),
+  whatsappStatus: () => json<WhatsAppStatusView>("/api/whatsapp/status"),
   calendarEvents: () => json<CalendarEventRow[]>("/api/google/calendar/events"),
 
   syncCalendar: () =>

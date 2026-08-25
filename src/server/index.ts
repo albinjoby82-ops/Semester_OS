@@ -23,6 +23,8 @@ export interface Env {
   GOOGLE_REDIRECT_URI?: string;
   /** WhatsApp Cloud API capture. Also set via `wrangler secret put`. */
   WHATSAPP_VERIFY_TOKEN?: string;
+  /** Meta app secret: validates that incoming webhooks are genuinely from Meta. */
+  WHATSAPP_APP_SECRET?: string;
   WHATSAPP_TOKEN?: string;
   WHATSAPP_PHONE_ID?: string;
   /** Comma-separated msisdns permitted to create tasks. */

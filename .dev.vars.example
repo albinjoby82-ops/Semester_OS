@@ -13,6 +13,8 @@ GOOGLE_REDIRECT_URI=
 # covers the same need with no third party). Webhook URL is
 # <origin>/api/whatsapp/webhook
 WHATSAPP_VERIFY_TOKEN=
+# Meta App Dashboard -> App settings -> Basic -> App secret.
+WHATSAPP_APP_SECRET=
 WHATSAPP_TOKEN=
 WHATSAPP_PHONE_ID=
 # Comma-separated numbers allowed to create tasks, e.g. 353871234567
