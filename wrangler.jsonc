@@ -25,10 +25,11 @@
     }
   ],
 
-  // Nightly debt + capacity recompute (02:00 UTC), and Plan Week generation
-  // on Sunday evening (18:00 UTC).
+  // Nightly Calendar refresh (02:00 UTC), plus a Sunday evening refresh
+  // before weekly planning (18:00 UTC). Cloudflare cron uses SUN or 1 for
+  // Sunday; unlike traditional cron it does not accept 0.
   "triggers": {
-    "crons": ["0 2 * * *", "0 18 * * 0"]
+    "crons": ["0 2 * * *", "0 18 * * SUN"]
   },
 
   "observability": {
