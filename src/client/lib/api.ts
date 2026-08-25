@@ -2,6 +2,7 @@ import type { GradeSummary } from "../../shared/grades";
 import type { ModuleRisk } from "../../shared/risk";
 import type { WeekCapacity, OverloadWarning } from "../../shared/capacity";
 import type { DriftReport, TrailingRatio } from "../../shared/drift";
+import type { Calibration } from "../../shared/calibration";
 
 export interface Assessment {
   id: string;
@@ -74,6 +75,21 @@ export interface WeekView {
   };
 }
 
+export interface TimeSession {
+  id: string;
+  taskId: string | null;
+  areaId: string;
+  moduleId: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  weekNumber: number | null;
+}
+
+export interface ActiveSession {
+  session: TimeSession;
+  task: Task | null;
+}
+
 export interface DebtView {
   currentWeek: number | null;
   items: Task[];
@@ -100,6 +116,20 @@ export const api = {
   areas: () => json<Area[]>("/api/areas"),
   tasks: () => json<Task[]>("/api/tasks"),
   week: () => json<WeekView>("/api/week"),
+  activeSession: () => json<ActiveSession | null>("/api/sessions/active"),
+  calibration: () => json<Calibration>("/api/sessions/calibration"),
+
+  startSession: (taskId: string) =>
+    json<ActiveSession>("/api/sessions/start", {
+      method: "POST",
+      body: JSON.stringify({ taskId }),
+    }),
+
+  stopSession: (complete: boolean) =>
+    json<{ minutes: number; task: Task | null }>("/api/sessions/stop", {
+      method: "POST",
+      body: JSON.stringify({ complete }),
+    }),
   debt: () => json<DebtView>("/api/week/debt"),
 
   setAllocations: (

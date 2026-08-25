@@ -8,6 +8,7 @@ import {
   type DebtView,
   type ModuleView,
   type Task,
+  type ActiveSession,
   type WeekView,
 } from "./lib/api";
 import { daysBetween, formatMinutes } from "./lib/format";
@@ -16,6 +17,8 @@ import { TaskRow } from "./components/TaskRow";
 import { OverloadHorizon } from "./components/OverloadHorizon";
 import { WeekPanel } from "./components/WeekPanel";
 import { ModuleCard } from "./components/ModuleCard";
+import { FocusMode } from "./components/FocusMode";
+import type { Calibration } from "../shared/calibration";
 
 export function App() {
   const [modules, setModules] = useState<ModuleView[]>([]);
@@ -23,24 +26,30 @@ export function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [week, setWeek] = useState<WeekView | null>(null);
   const [debt, setDebt] = useState<DebtView | null>(null);
+  const [active, setActive] = useState<ActiveSession | null>(null);
+  const [calibration, setCalibration] = useState<Calibration | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const [m, a, t, w, d] = await Promise.all([
+      const [m, a, t, w, d, s, cal] = await Promise.all([
         api.modules(),
         api.areas(),
         api.tasks(),
         api.week(),
         api.debt(),
+        api.activeSession(),
+        api.calibration(),
       ]);
       setModules(m);
       setAreas(a);
       setTasks(t);
       setWeek(w);
       setDebt(d);
+      setActive(s);
+      setCalibration(cal);
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Failed to load");
@@ -135,6 +144,25 @@ export function App() {
 
   const isAssessed = (task: Task) => Boolean(task.assignmentId);
 
+  const startFocus = async (task: Task) => {
+    try {
+      setActive(await api.startSession(task.id));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not start");
+    }
+  };
+
+  const stopFocus = async (complete: boolean) => {
+    try {
+      await api.stopSession(complete);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not stop");
+    } finally {
+      setActive(null);
+      void load();
+    }
+  };
+
   const handlers = {
     onToggleDone: (task: Task) =>
       patch(task.id, {
@@ -145,6 +173,7 @@ export function App() {
     onSubmit: (task: Task) => patch(task.id, { status: "submitted" }),
     onDefer: (task: Task, reason: string) =>
       patch(task.id, { deferredReason: reason }),
+    onStart: (task: Task) => void startFocus(task),
   };
 
   const now = new Date();
@@ -352,6 +381,14 @@ export function App() {
                     discover it.
                   </>
                 )}
+                {calibration?.message && (
+                  <>
+                    {" "}
+                    <span className="text-[var(--color-fg)]">
+                      {calibration.message}
+                    </span>
+                  </>
+                )}
                 {committedMinutes > 0 && (
                   <>
                     {" "}
@@ -366,6 +403,20 @@ export function App() {
             )}
           </Section>
         </>
+      )}
+
+      {active?.task && (
+        <FocusMode
+          task={active.task}
+          module={
+            active.task.moduleId
+              ? moduleById.get(active.task.moduleId)
+              : undefined
+          }
+          startedAt={active.session.startedAt}
+          onFinish={() => void stopFocus(true)}
+          onPause={() => void stopFocus(false)}
+        />
       )}
 
       <QuickCapture

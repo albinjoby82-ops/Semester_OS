@@ -16,6 +16,7 @@ interface Props {
   onToggleDone: (task: Task) => void;
   onSubmit: (task: Task) => void;
   onDefer: (task: Task, reason: string) => void;
+  onStart: (task: Task) => void;
 }
 
 export function TaskRow({
@@ -26,6 +27,7 @@ export function TaskRow({
   onToggleDone,
   onSubmit,
   onDefer,
+  onStart,
 }: Props) {
   const [deferring, setDeferring] = useState(false);
   const due = describeDue(task.dueAt);
@@ -108,6 +110,16 @@ export function TaskRow({
 
       {isAssessed && task.status === "submitted" && (
         <span className="shrink-0 text-[11px] text-emerald-400">Submitted</span>
+      )}
+
+      {!isDone && (
+        <button
+          onClick={() => onStart(task)}
+          className="shrink-0 rounded border border-[var(--color-border)] px-2 py-0.5 text-[11px] text-[var(--color-muted)] hover:border-[var(--color-accent)] hover:text-[var(--color-fg)]"
+          title="Focus on this task and track the time"
+        >
+          Start
+        </button>
       )}
 
       {!isDone &&
