@@ -2,7 +2,24 @@ import { Hono } from "hono";
 import { asc, eq } from "drizzle-orm";
 import { assignments, grades, modules } from "../../../db/schema";
 import type { AppContext } from "../index";
+
+/** Risk needs the same shape from both list and detail routes. */
+const toRisk = (a: typeof assignments.$inferSelect): RiskAssessment => ({
+  id: a.id,
+  title: a.title,
+  weightPercent: a.weightPercent,
+  dueWeek: a.dueWeek,
+  dueWeekEnd: a.dueWeekEnd,
+  dueAt: a.dueAt,
+  isExam: a.isExam,
+  isSubmitted: a.isSubmitted,
+  startedAt: a.startedAt,
+  mainWorkDoneAt: a.mainWorkDoneAt,
+  estimatedMinutes: a.estimatedMinutes,
+});
 import { summariseGrades } from "../../shared/grades";
+import { assessModule, type RiskAssessment } from "../../shared/risk";
+import { CURRENT_TERM } from "../../shared/term-config";
 
 export const modulesRoute = new Hono<AppContext>();
 
@@ -27,6 +44,7 @@ modulesRoute.get("/", async (c) => {
         grade: gradeByAssignment.get(a.id) ?? null,
       })),
       gradeSummary: summariseGrades(own, gradeByAssignment),
+      risk: assessModule(own.map(toRisk), { term: CURRENT_TERM }),
     };
   });
 
@@ -62,5 +80,6 @@ modulesRoute.get("/:code", async (c) => {
       grade: gradeByAssignment.get(a.id) ?? null,
     })),
     gradeSummary: summariseGrades(own, gradeByAssignment),
+    risk: assessModule(own.map(toRisk), { term: CURRENT_TERM }),
   });
 });

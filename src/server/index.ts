@@ -5,6 +5,7 @@ import * as schema from "../../db/schema";
 import { areas } from "../../db/schema";
 import { modulesRoute } from "./routes/modules";
 import { tasksRoute } from "./routes/tasks";
+import { weekRoute } from "./routes/week";
 
 export interface Env {
   DB: D1Database;
@@ -31,6 +32,7 @@ app.get("/api/areas", async (c) =>
 
 app.route("/api/modules", modulesRoute);
 app.route("/api/tasks", tasksRoute);
+app.route("/api/week", weekRoute);
 
 app.onError((err, c) => {
   console.error("Unhandled API error", err);

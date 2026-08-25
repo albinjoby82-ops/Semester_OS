@@ -2,31 +2,45 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CURRENT_TERM, TERM_DATES_UNCONFIRMED } from "../shared/term-config";
 import { teachingWeekForDate } from "../shared/term-week";
 import { parseCapture } from "../shared/parse-capture";
-import { api, type Area, type ModuleView, type Task } from "./lib/api";
+import {
+  api,
+  type Area,
+  type DebtView,
+  type ModuleView,
+  type Task,
+  type WeekView,
+} from "./lib/api";
 import { daysBetween, formatMinutes } from "./lib/format";
 import { QuickCapture } from "./components/QuickCapture";
 import { TaskRow } from "./components/TaskRow";
-import { TrimesterStrip } from "./components/TrimesterStrip";
+import { OverloadHorizon } from "./components/OverloadHorizon";
+import { WeekPanel } from "./components/WeekPanel";
 import { ModuleCard } from "./components/ModuleCard";
 
 export function App() {
   const [modules, setModules] = useState<ModuleView[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [week, setWeek] = useState<WeekView | null>(null);
+  const [debt, setDebt] = useState<DebtView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const [m, a, t] = await Promise.all([
+      const [m, a, t, w, d] = await Promise.all([
         api.modules(),
         api.areas(),
         api.tasks(),
+        api.week(),
+        api.debt(),
       ]);
       setModules(m);
       setAreas(a);
       setTasks(t);
+      setWeek(w);
+      setDebt(d);
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Failed to load");
@@ -134,6 +148,13 @@ export function App() {
   };
 
   const now = new Date();
+  // Debt is rendered in its own section; excluding those ids here keeps a task
+  // from appearing twice on the same screen.
+  const debtIds = useMemo(
+    () => new Set((debt?.items ?? []).map((t) => t.id)),
+    [debt],
+  );
+
   const groups = useMemo(() => {
     const overdue: Task[] = [];
     const today: Task[] = [];
@@ -141,6 +162,7 @@ export function App() {
     const undated: Task[] = [];
 
     for (const task of tasks) {
+      if (debtIds.has(task.id)) continue;
       if (!task.dueAt) {
         undated.push(task);
         continue;
@@ -152,7 +174,7 @@ export function App() {
     }
     return { overdue, today, upcoming, undated };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks]);
+  }, [tasks, debtIds]);
 
   const currentWeek = teachingWeekForDate(now, CURRENT_TERM);
   const totalEffort = modules.reduce(
@@ -212,7 +234,9 @@ export function App() {
         </p>
       )}
 
-      <TrimesterStrip currentWeek={currentWeek} modules={modules} />
+      {week && (
+        <OverloadHorizon horizon={week.horizon} currentWeek={week.currentWeek} />
+      )}
 
       {error && (
         <p className="my-4 rounded-md border border-rose-800 bg-rose-950/40 px-3 py-2 text-sm text-rose-200">
@@ -224,6 +248,38 @@ export function App() {
         <p className="my-10 text-sm text-[var(--color-muted)]">Loading…</p>
       ) : (
         <>
+          {week && (
+            <WeekPanel
+              week={week}
+              areas={areas}
+              onSaveAllocations={async (allocations) => {
+                await api.setAllocations(allocations);
+                void load();
+              }}
+            />
+          )}
+
+          {/* Academic debt: expected work that should already be done. */}
+          {debt && debt.count > 0 && (
+            <Section
+              title={`Academic debt: ${debt.count}`}
+              tone="danger"
+              note="University work from this week or earlier that should already be complete. It carries forward until done, rescheduled, or dismissed with a reason."
+            >
+              <p className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[var(--color-muted)]">
+                {debt.byModule.map((entry) => (
+                  <span key={entry.code}>
+                    <strong className="text-[var(--color-fg)]">
+                      {entry.code}
+                    </strong>{" "}
+                    {entry.titles.length}
+                  </span>
+                ))}
+              </p>
+              {renderTasks(debt.items)}
+            </Section>
+          )}
+
           {/* Overdue first, always. Never hide overdue work. */}
           {groups.overdue.length > 0 && (
             <Section
@@ -272,7 +328,7 @@ export function App() {
               ))}
             </div>
 
-            {totalEffort > 0 && (
+            {totalEffort > 0 && week && (
               <p className="mt-4 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2.5 text-xs leading-relaxed text-[var(--color-muted)]">
                 <strong className="text-[var(--color-fg)]">
                   The honest effort budget.
@@ -280,17 +336,30 @@ export function App() {
                 UCD states {totalEffort}h of total effort across these six
                 modules — about{" "}
                 <strong className="text-[var(--color-fg)]">
-                  {Math.round(totalEffort / CURRENT_TERM.teachingWeeks)}h a week
+                  {week.effort.statedPerWeek.toFixed(1)}h a week
                 </strong>{" "}
-                of university work alone, before GaelForce and Accio.
+                of university work alone, against{" "}
+                {week.effort.realisticHours}h of realistically allocatable time,
+                before GaelForce and Accio.
+                {!week.effort.feasible && (
+                  <>
+                    {" "}
+                    That is{" "}
+                    <strong className="text-rose-300">
+                      {week.effort.gapPerWeek.toFixed(1)}h a week more than fits
+                    </strong>
+                    . Something has to give, and it is better to choose than to
+                    discover it.
+                  </>
+                )}
                 {committedMinutes > 0 && (
                   <>
                     {" "}
-                    You have{" "}
+                    You currently have{" "}
                     <strong className="text-[var(--color-fg)]">
                       {formatMinutes(committedMinutes)}
                     </strong>{" "}
-                    of estimated work currently captured.
+                    of estimated work captured.
                   </>
                 )}
               </p>

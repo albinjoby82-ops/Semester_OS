@@ -129,7 +129,15 @@ tasksRoute.patch("/:id", async (c) => {
   const patch: Partial<typeof tasks.$inferInsert> = {};
 
   if (body.title !== undefined) patch.title = body.title.trim();
-  if (body.dueAt !== undefined) patch.dueAt = body.dueAt;
+  if (body.dueAt !== undefined) {
+    patch.dueAt = body.dueAt;
+    // Recompute the teaching week whenever the date moves. Without this a
+    // rescheduled task keeps its old week and silently drops out of capacity
+    // and debt for the week it actually lands in.
+    patch.weekNumber = body.dueAt
+      ? teachingWeekForDate(new Date(body.dueAt), CURRENT_TERM)
+      : null;
+  }
   if (body.estimatedMinutes !== undefined)
     patch.estimatedMinutes = body.estimatedMinutes;
   if (body.moduleId !== undefined) patch.moduleId = body.moduleId;

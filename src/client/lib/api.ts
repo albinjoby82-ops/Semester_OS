@@ -1,4 +1,7 @@
 import type { GradeSummary } from "../../shared/grades";
+import type { ModuleRisk } from "../../shared/risk";
+import type { WeekCapacity, OverloadWarning } from "../../shared/capacity";
+import type { DriftReport, TrailingRatio } from "../../shared/drift";
 
 export interface Assessment {
   id: string;
@@ -26,6 +29,7 @@ export interface ModuleView {
   ucdUrl: string | null;
   assessments: Assessment[];
   gradeSummary: GradeSummary;
+  risk: ModuleRisk;
 }
 
 export interface Task {
@@ -51,6 +55,32 @@ export interface Area {
   sortOrder: number;
 }
 
+export interface WeekView {
+  currentWeek: number | null;
+  term: { id: string; label: string; teachingWeeks: number };
+  capacity: WeekCapacity | null;
+  horizon: WeekCapacity[];
+  overloaded: OverloadWarning[];
+  drift: DriftReport;
+  trailing: TrailingRatio;
+  /** "tracked" once Focus mode logs real sessions; "estimated" until then. */
+  actualsSource: "tracked" | "estimated";
+  allocations: { areaId: string; plannedHours: number }[];
+  effort: {
+    statedPerWeek: number;
+    realisticHours: number;
+    gapPerWeek: number;
+    feasible: boolean;
+  };
+}
+
+export interface DebtView {
+  currentWeek: number | null;
+  items: Task[];
+  count: number;
+  byModule: { code: string; titles: string[] }[];
+}
+
 async function json<T>(input: string, init?: RequestInit): Promise<T> {
   const response = await fetch(input, {
     ...init,
@@ -69,6 +99,27 @@ export const api = {
   modules: () => json<ModuleView[]>("/api/modules"),
   areas: () => json<Area[]>("/api/areas"),
   tasks: () => json<Task[]>("/api/tasks"),
+  week: () => json<WeekView>("/api/week"),
+  debt: () => json<DebtView>("/api/week/debt"),
+
+  setAllocations: (
+    allocations: { areaId: string; plannedHours: number }[],
+    weekNumber?: number,
+  ) =>
+    json<unknown>("/api/week/allocations", {
+      method: "PUT",
+      body: JSON.stringify({ allocations, weekNumber }),
+    }),
+
+  logOverride: (input: {
+    areaId: string;
+    reason: string;
+    overageHours?: number;
+  }) =>
+    json<unknown>("/api/week/overrides", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
 
   createTask: (input: Partial<Task> & { title: string }) =>
     json<Task>("/api/tasks", { method: "POST", body: JSON.stringify(input) }),

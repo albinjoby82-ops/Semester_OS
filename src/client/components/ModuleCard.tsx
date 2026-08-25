@@ -82,8 +82,32 @@ export function ModuleCard({ module }: { module: ModuleView }) {
         </p>
       )}
 
+      {/*
+        Weight-at-risk, not a health score. "30% of this module's grade is
+        behind schedule" is actionable and comparable across modules.
+      */}
+      {module.risk.percentAtRisk > 0 && (
+        <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-snug text-rose-300">
+          <span aria-hidden>▲</span>
+          <span>
+            <strong>
+              {Math.round(module.risk.percentAtRisk)}% of this module&apos;s
+              grade is behind schedule.
+            </strong>{" "}
+            {module.risk.headline}
+          </span>
+        </p>
+      )}
+
+      {module.risk.percentAtRisk === 0 && module.risk.watchWeight > 0 && (
+        <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-snug text-amber-300/90">
+          <span aria-hidden>●</span>
+          <span>{module.risk.headline}</span>
+        </p>
+      )}
+
       {heaviest && heaviest.weightPercent >= 50 && (
-        <p className="mt-2 text-[11px] leading-snug text-amber-300/90">
+        <p className="mt-2 text-[11px] leading-snug text-[var(--color-muted)]">
           {heaviest.weightPercent}% rests on {heaviest.title.toLowerCase()} —
           weekly task completion will not tell you if you are behind here.
         </p>
