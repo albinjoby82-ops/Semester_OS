@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(gh auth status)",
+      "PowerShell(gh repo view albinjoby82-ops/Semester_OS --json name,isPrivate,defaultBranchRef,description 2>&1)"
+    ]
+  }
+}
