@@ -65,6 +65,9 @@ export interface Task {
   isRequiredWeekly: boolean;
   deferredReason: string | null;
   createdAt: string;
+  /** The concrete slot this is booked into, set from the week grid. */
+  scheduledStartAt: string | null;
+  scheduledEndAt: string | null;
 }
 
 export interface Area {
@@ -259,6 +262,20 @@ export const api = {
 
   whatsappStatus: () => json<WhatsAppStatusView>("/api/whatsapp/status"),
   calendarEvents: () => json<CalendarEventRow[]>("/api/google/calendar/events"),
+
+  /** Book a task into a slot on the week grid. */
+  scheduleTask: (id: string, startAt: string, endAt: string) =>
+    json<Task>(`/api/tasks/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ scheduledStartAt: startAt, scheduledEndAt: endAt }),
+    }),
+
+  /** Return a task to the unscheduled pool, leaving it otherwise untouched. */
+  unscheduleTask: (id: string) =>
+    json<Task>(`/api/tasks/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ scheduledStartAt: null, scheduledEndAt: null }),
+    }),
 
   syncCalendar: () =>
     json<{ imported: number; skipped: number }>("/api/google/calendar/sync", {

@@ -120,3 +120,71 @@ button { cursor: pointer; }
   .overview-grid { grid-template-columns: 1fr; margin-bottom: 2.15rem; }
   .next-action { padding: 1.3rem; }.content-section { margin: 2.15rem 0; }
 }
+
+/* ---------- week calendar ---------- */
+/* Where the week's free hours actually are. Capacity gives the total; this
+   gives the shape, which is what makes a slot choosable. */
+.week-calendar { margin-bottom: 2.55rem; padding: 1.35rem 1.4rem 1.5rem; border: 1px solid var(--color-border); border-radius: 1.1rem; background: var(--color-surface); box-shadow: 0 10px 25px rgba(58, 93, 67, .04); }
+.wc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+.wc-kicker { margin: 0; color: #5d8969; font-size: .67rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.wc-head h2 { margin: .18rem 0 0; color: #294333; font-family: Georgia, serif; font-size: 1.35rem; font-weight: 500; letter-spacing: -.025em; }
+.wc-nav { display: flex; flex: 0 0 auto; gap: .3rem; }
+.wc-nav button { min-width: 1.9rem; padding: .3rem .55rem; border: 1px solid var(--color-border); border-radius: .6rem; background: #fff; color: #5c6d62; font-size: .78rem; font-weight: 650; cursor: pointer; }
+.wc-nav button:hover { background: #f2f7f2; color: #3c5a47; }
+.wc-summary { margin: .85rem 0 1.1rem; color: #5d6d63; font-size: .8rem; line-height: 1.6; }
+.wc-summary strong { color: #33513f; font-variant-numeric: tabular-nums; }
+
+.wc-scroll { overflow-x: auto; }
+.wc-grid { display: grid; grid-template-columns: 2.9rem repeat(7, minmax(6.2rem, 1fr)); gap: .3rem; min-width: 47rem; }
+
+/* The hour rail is positioned against the same percentage scale as the
+   columns, so a label and its rule cannot drift apart. */
+.wc-hours { position: relative; height: 20rem; }
+.wc-hours span { position: absolute; right: .3rem; transform: translateY(-50%); color: #93a099; font-size: .63rem; font-variant-numeric: tabular-nums; }
+
+.wc-day { display: flex; flex-direction: column; gap: .35rem; }
+.wc-day-head { display: flex; align-items: baseline; gap: .3rem; padding-bottom: .1rem; }
+.wc-day-name { color: #6b7a70; font-size: .7rem; font-weight: 750; letter-spacing: .04em; text-transform: uppercase; }
+.wc-day-num { color: #33513f; font-size: .82rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.wc-day-busy { margin-left: auto; color: #93a099; font-size: .63rem; font-variant-numeric: tabular-nums; }
+.wc-day.is-today .wc-day-name, .wc-day.is-today .wc-day-num { color: #457a58; }
+
+.wc-column { position: relative; height: 20rem; border: 1px solid var(--color-border); border-radius: .7rem; background: #fcfdfb; overflow: hidden; }
+.wc-day.is-today .wc-column { border-color: #b9d4c2; background: #f8fcf8; }
+.wc-rule { position: absolute; right: 0; left: 0; border-top: 1px dashed #e8eee8; }
+
+/* A free gap is a control, so it looks like one: faint until hovered, and
+   labelled with what it would give you. */
+.wc-slot { position: absolute; right: .15rem; left: .15rem; display: flex; align-items: center; justify-content: center; padding: 0; border: 1px dashed #d6e3d8; border-radius: .45rem; background: transparent; color: #8ba295; font-size: .62rem; cursor: pointer; overflow: hidden; }
+.wc-slot:hover:not(:disabled) { border-color: #7fae90; border-style: solid; background: #eef7f0; color: #3f6d51; }
+.wc-slot:disabled { cursor: default; opacity: .5; }
+.wc-slot:focus-visible { outline: 2px solid #6f9d81; outline-offset: 1px; }
+.wc-slot-label { padding: 0 .2rem; white-space: nowrap; }
+
+.wc-block { position: absolute; right: .15rem; left: .15rem; padding: .18rem .32rem; border-radius: .45rem; font-size: .64rem; line-height: 1.25; overflow: hidden; }
+.wc-block.is-event { border: 1px solid #cfe0d4; background: #e9f2eb; color: #37543f; }
+.wc-block.is-task { border: 1px solid #c6d8e6; background: #e7f0f7; color: #2f5069; }
+.wc-block-time { display: block; font-size: .58rem; font-variant-numeric: tabular-nums; opacity: .75; }
+.wc-block-title { display: block; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wc-unbook { position: absolute; top: .1rem; right: .12rem; padding: 0 .2rem; border: 0; border-radius: .3rem; background: transparent; color: #6d8ba3; font-size: .72rem; line-height: 1; cursor: pointer; }
+.wc-unbook:hover { background: #d6e6f2; color: #24425c; }
+
+.wc-picker { margin-top: 1rem; padding: .9rem 1rem 1rem; border: 1px solid #cfe0d4; border-radius: .85rem; background: #f6faf6; }
+.wc-picker-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .6rem; }
+.wc-picker-head p { margin: 0; color: #4c6656; font-size: .78rem; }
+.wc-picker-head strong { color: #2c4a38; }
+.wc-picker-head button { padding: .28rem .6rem; border: 1px solid var(--color-border); border-radius: .55rem; background: #fff; color: #6b7a70; font-size: .72rem; cursor: pointer; }
+.wc-picker-list { display: flex; flex-direction: column; gap: .3rem; margin: 0; padding: 0; list-style: none; max-height: 13rem; overflow-y: auto; }
+.wc-picker-list button { display: block; width: 100%; padding: .48rem .6rem; border: 1px solid transparent; border-radius: .6rem; background: #fff; text-align: left; cursor: pointer; }
+.wc-picker-list button:hover { border-color: #b9d4c2; background: #eef7f0; }
+.wc-pick-title { display: block; color: #33513f; font-size: .8rem; font-weight: 650; }
+.wc-pick-meta { display: block; margin-top: .1rem; color: #8a998f; font-size: .68rem; }
+.wc-pick-meta em { color: #a8763f; font-style: normal; }
+
+.wc-empty { margin: 1rem 0 0; color: #8a998f; font-size: .78rem; }
+
+@media (max-width: 760px) {
+  .week-calendar { padding: 1.1rem 1rem 1.2rem; }
+  .wc-grid { min-width: 42rem; }
+  .wc-column, .wc-hours { height: 16rem; }
+}

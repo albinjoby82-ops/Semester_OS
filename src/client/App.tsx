@@ -12,6 +12,7 @@ import {
   type GoogleStatusView,
   type WhatsAppStatusView,
   type WeekView,
+  type CalendarEventRow,
 } from "./lib/api";
 import type { StageKey } from "../shared/radar";
 import type { WireNextView, WireRadarItem } from "./lib/wire";
@@ -28,6 +29,7 @@ import { FocusMode } from "./components/FocusMode";
 import { ModulePage } from "./components/ModulePage";
 import { AssessmentRadar } from "./components/AssessmentRadar";
 import { NextAction } from "./components/NextAction";
+import { WeekCalendar } from "./components/WeekCalendar";
 import { GooglePanel } from "./components/GooglePanel";
 import { CalendarImportPanel } from "./components/CalendarImportPanel";
 import { WhatsAppPanel } from "./components/WhatsAppPanel";
@@ -50,6 +52,7 @@ export function App() {
   const [active, setActive] = useState<ActiveSession | null>(null);
   const [calibration, setCalibration] = useState<Calibration | null>(null);
   const [radar, setRadar] = useState<WireRadarItem[]>([]);
+  const [events, setEvents] = useState<CalendarEventRow[]>([]);
   const [next, setNext] = useState<WireNextView | null>(null);
   const [google, setGoogle] = useState<GoogleStatusView | null>(null);
   const [whatsapp, setWhatsapp] = useState<WhatsAppStatusView | null>(null);
@@ -80,6 +83,7 @@ export function App() {
         api.calendarEvents(),
       ]);
       setRadar(r);
+      setEvents(events);
 
       setGoogle(gStatus);
       setWhatsapp(wStatus);
@@ -185,6 +189,8 @@ export function App() {
       estimatedMinutes: parsed.estimatedMinutes,
       isRequiredWeekly: false,
       deferredReason: null,
+      scheduledStartAt: null,
+      scheduledEndAt: null,
       createdAt: new Date().toISOString(),
     };
 
@@ -599,6 +605,21 @@ export function App() {
                 />
               )}
             </div>
+
+            {/* Where the free hours actually are, and somewhere to put work. */}
+            <WeekCalendar
+              events={events}
+              tasks={tasks}
+              modules={modules}
+              onSchedule={async (taskId, startAt, endAt) => {
+                await api.scheduleTask(taskId, startAt, endAt);
+                void load();
+              }}
+              onUnschedule={async (taskId) => {
+                await api.unscheduleTask(taskId);
+                void load();
+              }}
+            />
 
             {/* Academic debt: expected work that should already be done. */}
             {debt && debt.count > 0 && (
