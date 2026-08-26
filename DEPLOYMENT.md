@@ -60,3 +60,29 @@ After deployment, verify `/api/health`, a refreshed deep link such as
 `/glance`, offline capture, installed-PWA launch, and (if enabled) a Google
 Calendar connection. The Worker’s nightly schedule refreshes the connected
 Calendar mirror automatically.
+
+## Backing up local data
+
+Running locally, the database lives in `.wrangler/state` and is not backed up
+by anything. Most of it can be rebuilt -- modules and assignments from
+`npm run db:seed:local`, calendar events by pressing Fetch -- but grades and
+time sessions cannot. They record what actually happened and have no source of
+truth anywhere else.
+
+```
+npm run db:backup
+```
+
+Writes a timestamped data-only snapshot to `backups/`, keeping the last ten.
+`backups/` is gitignored: these files contain personal data and must not be
+committed.
+
+```
+npm run db:restore -- backups/<file>.sql
+```
+
+Drops every table, reapplies the migrations, and reloads the snapshot. It takes
+its own backup first, so restoring the wrong file is recoverable.
+
+Snapshots hold data only. The schema comes from `db/migrations`, which is the
+authoritative copy and, unlike a full dump, applies in an order SQLite accepts.

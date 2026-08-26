@@ -17,6 +17,8 @@
     "db:migrate:remote": "wrangler d1 migrations apply semester-os --remote",
     "cf-typegen": "wrangler types",
     "db:seed:generate": "node db/seed/generate.ts",
+    "db:backup": "node scripts/backup.mjs",
+    "db:restore": "node scripts/restore.mjs",
     "db:seed:local": "node db/seed/generate.ts && wrangler d1 execute semester-os --local --file db/seed/seed.sql",
     "icons": "node scripts/generate-icons.mjs"
   },

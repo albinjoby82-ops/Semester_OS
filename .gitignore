@@ -10,3 +10,6 @@ worker-configuration.d.ts
 .env
 .env.*
 db/seed/seed.sql
+
+# Local database snapshots: personal data (grades, study sessions). Never committed.
+backups/
