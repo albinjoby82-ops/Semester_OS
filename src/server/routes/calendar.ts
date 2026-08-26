@@ -36,6 +36,24 @@ interface ImportSummary {
   lastEvent: string | null;
 }
 
+/**
+ * Rows per INSERT statement.
+ *
+ * D1 allows at most 100 bound parameters per query and these rows bind nine
+ * columns each, so ten rows sits just inside the limit -- an all-rows insert
+ * fails outright on any realistic timetable. Chunking keeps every statement
+ * legal while leaving the whole import in one batch, and therefore atomic.
+ */
+const ROWS_PER_INSERT = 10;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    out.push(items.slice(i, i + size));
+  }
+  return out;
+}
+
 async function importIcs(db: Db, text: string): Promise<ImportSummary> {
   const { events, calendarName, skipped } = parseIcs(text, {
     defaultTimeZone: "Europe/Dublin",
@@ -48,24 +66,17 @@ async function importIcs(db: Db, text: string): Promise<ImportSummary> {
     name: m.name,
   }));
 
-  // Replace the previous import wholesale. Occurrence ids are stable, so an
-  // upsert alone would leave orphans behind whenever a lecture is cancelled
-  // or a room changes -- and a stale event silently eats capacity.
-  await db
-    .delete(calendarEvents)
-    .where(like(calendarEvents.googleEventId, `${IMPORT_PREFIX}%`));
-
   const syncedAt = new Date().toISOString();
   let matched = 0;
 
-  for (const event of events) {
+  const rows = events.map((event) => {
     const moduleId = matchModule(
       [event.title, event.location].filter(Boolean).join(" "),
       matchable,
     );
     if (moduleId) matched += 1;
 
-    await db.insert(calendarEvents).values({
+    return {
       id: crypto.randomUUID(),
       googleEventId: event.uid,
       title: event.title,
@@ -75,8 +86,28 @@ async function importIcs(db: Db, text: string): Promise<ImportSummary> {
       moduleId,
       areaId: moduleId ? "university" : null,
       syncedAt,
-    });
-  }
+    };
+  });
+
+  // Replace the previous import wholesale. Occurrence ids are stable, so an
+  // upsert alone would leave orphans behind whenever a lecture is cancelled
+  // or a room changes -- and a stale event silently eats capacity.
+  //
+  // Delete and re-insert go in one batch because D1 runs a batch as a single
+  // transaction. Issued separately they are not atomic, and a reader arriving
+  // mid-import sees a timetable that is empty or half-populated -- which since
+  // the refresh started running on app launch is no longer a hypothetical
+  // window between a user's click and their next page load, but a race against
+  // the very page load that triggered it.
+  const inserts = chunk(rows, ROWS_PER_INSERT).map((batchRows) =>
+    db.insert(calendarEvents).values(batchRows),
+  );
+  await db.batch([
+    db
+      .delete(calendarEvents)
+      .where(like(calendarEvents.googleEventId, `${IMPORT_PREFIX}%`)),
+    ...inserts,
+  ]);
 
   return {
     imported: events.length,

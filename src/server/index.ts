@@ -45,33 +45,58 @@ export type AppContext = {
 const app = new Hono<AppContext>();
 
 app.use("/api/*", async (c, next) => {
-  c.set("db", drizzle(c.env.DB, { schema }));
+  const db = drizzle(c.env.DB, { schema });
+  c.set("db", db);
+  scheduleLaunchRefresh(db, c.executionCtx);
   await next();
 });
 
 /**
- * Refresh the subscribed calendar when the app is first opened.
+ * Refresh the subscribed calendar when the app is opened.
  *
  * Locally there is no cron trigger, so without this a subscription only ever
- * updates when someone remembers to press Fetch -- which is exactly the manual
- * step subscribing was meant to remove.
+ * updates when someone remembers to press Fetch -- the exact manual step that
+ * subscribing was meant to remove.
  *
- * Guarded twice over. The module-level promise keeps it to one attempt per
- * isolate, so a page load that fans out into a dozen API calls does not fan
- * out into a dozen fetches of the same calendar; the staleness check inside
- * bounds how often a fresh isolate actually reaches the network. It runs under
- * waitUntil so nothing waits on it: a slow or unreachable calendar server must
- * not hold up the first paint.
+ * Three things bound the cost. An in-flight promise collapses the fan-out of a
+ * single page load into one attempt. A cooldown stops a failing calendar
+ * server from being retried on every subsequent request, which the staleness
+ * check alone would not prevent: a failed import leaves the data stale, so
+ * every following request would look due. And the staleness check inside
+ * bounds how often a healthy isolate reaches the network at all.
+ *
+ * Clearing the promise once it settles is deliberate. A worker isolate can
+ * live for hours -- a local dev server, for days -- so pinning the attempt to
+ * the isolate's lifetime would mean a machine left running never refreshes
+ * again. The cooldown, not the promise, is what limits the rate.
  */
-let launchRefresh: Promise<unknown> | null = null;
+const REFRESH_RETRY_COOLDOWN_MS = 10 * 60 * 1000;
 
-app.use("/api/*", async (c, next) => {
-  if (!launchRefresh) {
-    launchRefresh = refreshSubscriptionIfDue(c.get("db"));
-    c.executionCtx.waitUntil(launchRefresh);
+let refreshInFlight: Promise<unknown> | null = null;
+let refreshAttemptedAt = 0;
+
+function scheduleLaunchRefresh(
+  db: AppContext["Variables"]["db"],
+  executionCtx: { waitUntil: (promise: Promise<unknown>) => void },
+) {
+  const now = Date.now();
+  if (refreshInFlight) return;
+  if (
+    refreshAttemptedAt &&
+    now - refreshAttemptedAt < REFRESH_RETRY_COOLDOWN_MS
+  ) {
+    return;
   }
-  await next();
-});
+  refreshAttemptedAt = now;
+
+  refreshInFlight = refreshSubscriptionIfDue(db).finally(() => {
+    refreshInFlight = null;
+  });
+
+  // Nothing waits on the refresh: a slow or unreachable calendar server must
+  // not hold up the first paint.
+  executionCtx.waitUntil(refreshInFlight);
+}
 
 app.get("/api/health", (c) => c.json({ ok: true }));
 
