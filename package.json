@@ -23,6 +23,7 @@
     "db:restore:remote": "node scripts/restore.mjs --remote",
     "db:seed:local": "node db/seed/generate.ts && wrangler d1 execute semester-os --local --file db/seed/seed.sql",
     "icons": "node scripts/generate-icons.mjs"
+    ,"bridge": "node bridge/server.mjs"
   },
   "repository": {
     "type": "git",

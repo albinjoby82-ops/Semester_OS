@@ -34,6 +34,7 @@ import { GooglePanel } from "./components/GooglePanel";
 import { CalendarImportPanel } from "./components/CalendarImportPanel";
 import { WhatsAppPanel } from "./components/WhatsAppPanel";
 import { Glance } from "./components/Glance";
+import { AcademicLibrary } from "./components/AcademicLibrary";
 import {
   enqueue,
   flushQueue,
@@ -399,6 +400,10 @@ export function App() {
         </p>
         <nav className="side-nav" aria-label="Main navigation">
           <a
+            {...linkProps({ name: "library" }, navigate)}
+            className={route.name === "library" ? "nav-link is-active" : "nav-link"}
+          ><span className="nav-icon">▤</span> Library</a>
+          <a
             {...linkProps({ name: "today" }, navigate)}
             className={
               route.name === "today"
@@ -461,6 +466,7 @@ export function App() {
           <a {...linkProps({ name: "assessments" }, navigate)} className={route.name === "assessments" ? "is-active" : ""}>Assessments</a>
           <a {...linkProps({ name: "settings" }, navigate)} className={route.name === "settings" ? "is-active" : ""}>Settings</a>
           <a {...linkProps({ name: "glance" }, navigate)} className={route.name === "glance" ? "is-active" : ""}>Glance</a>
+          <a {...linkProps({ name: "library" }, navigate)} className={route.name === "library" ? "is-active" : ""}>Library</a>
         </nav>
 
       {(!online || queued > 0) && (
@@ -479,7 +485,7 @@ export function App() {
         </p>
       )}
 
-      {route.name === "share" ? (
+      {route.name === "library" ? <AcademicLibrary /> : route.name === "share" ? (
         <ShareHandler
           onCapture={async (text) => {
             await capture(text);

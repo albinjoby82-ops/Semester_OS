@@ -12,6 +12,7 @@ export type Route =
   | { name: "assessments" }
   | { name: "settings" }
   | { name: "glance" }
+  | { name: "library" }
   | { name: "share" };
 
 export function parseRoute(pathname: string): Route {
@@ -22,6 +23,7 @@ export function parseRoute(pathname: string): Route {
   if (/^\/assessments\/?$/.test(pathname)) return { name: "assessments" };
   if (/^\/settings\/?$/.test(pathname)) return { name: "settings" };
   if (/^\/glance\/?$/.test(pathname)) return { name: "glance" };
+  if (/^\/library\/?$/.test(pathname)) return { name: "library" };
   if (/^\/share\/?$/.test(pathname)) return { name: "share" };
   return { name: "today" };
 }
@@ -38,6 +40,8 @@ export function hrefFor(route: Route): string {
       return "/glance";
     case "share":
       return "/share";
+    case "library":
+      return "/library";
     default:
       return "/";
   }
