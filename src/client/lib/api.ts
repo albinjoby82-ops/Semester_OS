@@ -122,6 +122,15 @@ export interface FixedCommitment {
   active: boolean;
 }
 
+export interface CalendarImportSummary {
+  imported: number;
+  matched: number;
+  skipped: { summary: string; reason: string }[];
+  calendarName: string | null;
+  firstEvent: string | null;
+  lastEvent: string | null;
+}
+
 export interface GoogleStatusView {
   configured: boolean;
   connected: boolean;
@@ -233,6 +242,21 @@ export const api = {
   commitments: () => json<FixedCommitment[]>("/api/week/commitments"),
 
   googleStatus: () => json<GoogleStatusView>("/api/google/status"),
+
+  /** Upload an exported .ics file. Sent as the raw body -- one file, no fields. */
+  importCalendarFile: (ics: string) =>
+    json<CalendarImportSummary>("/api/calendar/import", {
+      method: "POST",
+      headers: { "Content-Type": "text/calendar" },
+      body: ics,
+    }),
+
+  subscribeCalendar: (url: string) =>
+    json<CalendarImportSummary>("/api/calendar/subscribe", {
+      method: "POST",
+      body: JSON.stringify({ url }),
+    }),
+
   whatsappStatus: () => json<WhatsAppStatusView>("/api/whatsapp/status"),
   calendarEvents: () => json<CalendarEventRow[]>("/api/google/calendar/events"),
 

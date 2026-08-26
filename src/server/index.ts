@@ -10,6 +10,11 @@ import { sessionsRoute } from "./routes/sessions";
 import { assignmentsRoute } from "./routes/assignments";
 import { nextRoute } from "./routes/next";
 import { googleRoute } from "./routes/google";
+import {
+  calendarRoute,
+  importIcsFromUrl,
+  readSubscriptionUrl,
+} from "./routes/calendar";
 import { whatsappRoute } from "./routes/whatsapp";
 import { getAccessToken, readConfig } from "./services/google-auth";
 import { syncGoogleCalendar } from "./services/google-calendar";
@@ -56,6 +61,7 @@ app.route("/api/sessions", sessionsRoute);
 app.route("/api/assignments", assignmentsRoute);
 app.route("/api/next", nextRoute);
 app.route("/api/google", googleRoute);
+app.route("/api/calendar", calendarRoute);
 app.route("/api/whatsapp", whatsappRoute);
 
 app.onError((err, c) => {
@@ -92,6 +98,24 @@ export default {
    */
   async scheduled(event: ScheduledController, env: Env) {
     const db = drizzle(env.DB, { schema });
+
+    // A subscribed .ics URL refreshes independently of Google being connected
+    // -- for anyone whose university blocks OAuth, this is the only sync there
+    // is, so it must not sit behind the Google checks below.
+    const subscription = await readSubscriptionUrl(db);
+    if (subscription) {
+      try {
+        const result = await importIcsFromUrl(db, subscription);
+        console.log("scheduled ics refresh complete", {
+          cron: event.cron,
+          imported: result.imported,
+          matched: result.matched,
+        });
+      } catch (cause) {
+        console.error("scheduled ics refresh failed", cause);
+      }
+    }
+
     const config = readConfig(env);
     if (!config) {
       console.log("scheduled run skipped: Google is not configured", event.cron);
