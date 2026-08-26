@@ -29,6 +29,7 @@ import { ModulePage } from "./components/ModulePage";
 import { AssessmentRadar } from "./components/AssessmentRadar";
 import { NextAction } from "./components/NextAction";
 import { GooglePanel } from "./components/GooglePanel";
+import { CalendarImportPanel } from "./components/CalendarImportPanel";
 import { WhatsAppPanel } from "./components/WhatsAppPanel";
 import { Glance } from "./components/Glance";
 import {
@@ -515,6 +516,7 @@ export function App() {
         })()
       ) : route.name === "settings" ? (
         <>
+          <CalendarImportPanel onImported={() => void load()} />
           <GooglePanel
             status={google}
             busy={googleBusy}
