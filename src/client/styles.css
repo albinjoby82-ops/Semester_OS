@@ -135,6 +135,71 @@ button { cursor: pointer; }
   .next-action { padding: 1.3rem; }.content-section { margin: 2.15rem 0; }
 }
 
+/* JARVIS / EEE refresh: intentionally isolated so the visual layer can be
+   reverted without touching the application's layout or data behavior. */
+:root {
+  --color-bg: #eef4f9;
+  --color-surface: #ffffff;
+  --color-border: #d7e3ee;
+  --color-fg: #102a43;
+  --color-muted: #647b91;
+  --color-accent: #1769aa;
+}
+
+body {
+  background: #eef4f9;
+  color: #102a43;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+body::before {
+  opacity: .9;
+  background: radial-gradient(circle at 4% 0%, #d9efff 0, transparent 30rem),
+    radial-gradient(circle at 100% 8%, #e3eafa 0, transparent 28rem),
+    linear-gradient(135deg, #f6faff 0%, #eef4f9 100%);
+}
+::selection { background: #bfe4ff; color: #09233b; }
+.side-rail {
+  border-right-color: #cdddea;
+  background: rgba(246, 250, 253, .68);
+}
+.brand-mark { color: #0b2c4a; letter-spacing: -.035em; }
+.brand-mark > span:last-child span { color: #1b75bb; }
+.brand-orb {
+  width: 2.12rem; height: 2.12rem; border-radius: .62rem;
+  background: linear-gradient(145deg, #164d7b, #1c89c9);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.15rem; box-shadow: 0 8px 18px rgba(21, 102, 160, .24);
+}
+.rail-term, .eyebrow { color: #69839a; }
+.nav-link { color: #6c8296; }
+.nav-link:hover { background: #e4f1fb; color: #164f7b; }
+.nav-link.is-active { background: #dceefa; color: #1263a0; box-shadow: inset 0 0 0 1px rgba(39, 133, 193, .16); }
+.capture-button, .action-button { border-color: #1769aa; background: #1769aa; box-shadow: 0 9px 17px rgba(23, 105, 170, .18); }
+.capture-button:hover, .action-button:hover { background: #0e568c; box-shadow: 0 11px 21px rgba(23, 105, 170, .24); }
+.rail-note { color: #7891a5; }
+.workspace-header h1 { color: #102f4b; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: clamp(1.7rem, 3.6vw, 2.55rem); letter-spacing: -.075em; }
+.eyebrow { display: flex; align-items: center; gap: .35rem; }
+.signal-pulse { display: inline-block; width: .45rem; height: .45rem; border-radius: 50%; background: #18a6d9; box-shadow: 0 0 0 .22rem rgba(24, 166, 217, .14); }
+.section-heading h2, .next-action .action-label, .wc-kicker, .panel-kicker { color: #1769aa; }
+.bg-\[var\(--color-surface\)\], .week-panel, .module-card, .resource-table, .week-calendar { box-shadow: 0 10px 28px rgba(22, 66, 103, .06); }
+.next-action { border-color: #b9dff3; background: linear-gradient(120deg, #f4fbff, #e7f4fc); box-shadow: 0 13px 31px rgba(30, 104, 151, .08); }
+.next-action::after { background: rgba(117, 201, 235, .2); }
+.module-card:hover { border-color: #a8cce4; box-shadow: 0 14px 28px rgba(22, 93, 139, .1); }
+.task-row:hover { background: #f5fbff; }
+.mobile-capture { background: #1769aa; box-shadow: 0 7px 15px rgba(23, 105, 170, .2); }
+.mobile-route-nav a.is-active { background: #dceefa; color: #1769aa; }
+.sync-alert { border-color: #b9d8eb; background: #f6fbff; }
+.setup-alert { border-color: #b8d9ea; background: #f2faff; color: #356783; }
+.wc-day.is-today .wc-day-name, .wc-day.is-today .wc-day-num { color: #1769aa; }
+.wc-day.is-today .wc-column { border-color: #a9d3eb; background: #f5fbff; }
+.wc-slot:hover:not(:disabled) { border-color: #59abd5; background: #eaf7fd; color: #1769aa; }
+.wc-block.is-event { border-color: #b9d8eb; background: #e5f3fb; color: #245876; }
+.wc-block.is-task { border-color: #b8cde7; background: #e6effa; color: #2e5378; }
+
+@media (max-width: 760px) {
+  .side-rail { background: rgba(246, 250, 253, .9); border-bottom-color: #cdddea; }
+}
+
 /* ---------- week calendar ---------- */
 /* Where the week's free hours actually are. Capacity gives the total; this
    gives the shape, which is what makes a slot choosable. */

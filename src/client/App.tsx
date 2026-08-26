@@ -391,7 +391,7 @@ export function App() {
     <div className="app-shell">
       <aside className="side-rail">
         <a {...linkProps({ name: "today" }, navigate)} className="brand-mark">
-          <span className="brand-orb">S</span>
+          <span className="brand-orb">∿</span>
           <span>semester<span>os</span></span>
         </a>
         <p className="rail-term">
@@ -450,13 +450,13 @@ export function App() {
         >
           <span>＋</span> Add a task <kbd>Q</kbd>
         </button>
-        <p className="rail-note">A calm place to keep the term in view.</p>
+        <p className="rail-note">Your academic control system.<br />Stay curious. Stay in phase.</p>
       </aside>
 
       <main className="app-main">
         <header className="workspace-header">
           <div>
-            <p className="eyebrow">{dateLabel}</p>
+            <p className="eyebrow"><span className="signal-pulse" /> {dateLabel} · EEE control desk</p>
             <h1>{route.name === "today" ? "Your day, at a glance." : "Semester workspace"}</h1>
           </div>
           <button onClick={() => setCapturing(true)} className="mobile-capture" aria-label="Add a task">＋</button>
