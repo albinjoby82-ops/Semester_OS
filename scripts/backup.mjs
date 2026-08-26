@@ -19,7 +19,14 @@
  * before the parent table exists and SQLite rejects the whole file with
  * "no such table". Restoring applies the migrations first instead.
  *
- * Run with: npm run db:backup
+ * Two databases exist and they are unrelated: the local one under
+ * .wrangler/state, and the deployed one behind the Worker. Snapshots are kept
+ * in separate directories per environment, because the failure this guards
+ * against is not only losing data but reviving the wrong data somewhere it
+ * does not belong.
+ *
+ * Run with: npm run db:backup       (local)
+ *           npm run db:backup:remote (deployed)
  */
 import { execFileSync } from "node:child_process";
 import {
@@ -36,14 +43,17 @@ import { basename, dirname, join } from "node:path";
 /** Enough history to survive a bad import going unnoticed for a few days. */
 const KEEP = 10;
 
+const remote = process.argv.includes("--remote");
+const env = remote ? "remote" : "local";
+
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const dir = join(root, "backups");
+const dir = join(root, "backups", env);
 mkdirSync(dir, { recursive: true });
 
 // Colons are not legal in Windows filenames, so the ISO timestamp is flattened
 // rather than used as-is. Sorting stays chronological either way.
 const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-const output = join(dir, `semester-os-${stamp}.sql`);
+const output = join(dir, `semester-os-${env}-${stamp}.sql`);
 
 // Wrangler's JS entrypoint is run directly rather than through npx: Node
 // refuses to spawn .cmd shims without a shell, and going through a shell would
@@ -57,7 +67,7 @@ execFileSync(
     "d1",
     "export",
     "semester-os",
-    "--local",
+    remote ? "--remote" : "--local",
     "--no-schema",
     "--output",
     output,
@@ -83,12 +93,12 @@ writeFileSync(
 
 const size = statSync(output).size;
 console.log(
-  `Backed up to backups/${basename(output)} -- ${inserts.length} rows, ${(size / 1024).toFixed(1)} kB`,
+  `Backed up ${env} to backups/${env}/${basename(output)} -- ${inserts.length} rows, ${(size / 1024).toFixed(1)} kB`,
 );
 
 // Prune oldest first. Names are timestamped, so lexical order is chronological.
 const existing = readdirSync(dir)
-  .filter((f) => f.startsWith("semester-os-") && f.endsWith(".sql"))
+  .filter((f) => f.startsWith(`semester-os-${env}-`) && f.endsWith(".sql"))
   .sort();
 
 for (const stale of existing.slice(0, Math.max(0, existing.length - KEEP))) {
@@ -97,5 +107,5 @@ for (const stale of existing.slice(0, Math.max(0, existing.length - KEEP))) {
 }
 
 console.log(
-  `${Math.min(existing.length, KEEP)} backup(s) kept. Restore with: npm run db:restore -- backups/<file>.sql`,
+  `${Math.min(existing.length, KEEP)} ${env} backup(s) kept. Restore with: npm run db:restore${remote ? ":remote" : ""} -- backups/${env}/<file>.sql`,
 );

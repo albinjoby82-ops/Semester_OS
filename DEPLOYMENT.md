@@ -61,10 +61,10 @@ After deployment, verify `/api/health`, a refreshed deep link such as
 Calendar connection. The Worker’s nightly schedule refreshes the connected
 Calendar mirror automatically.
 
-## Backing up local data
+## Backing up
 
-Running locally, the database lives in `.wrangler/state` and is not backed up
-by anything. Most of it can be rebuilt -- modules and assignments from
+There are two unrelated databases: the local one in `.wrangler/state`, and the
+deployed one behind the Worker. Neither is backed up by anything. Most of it can be rebuilt -- modules and assignments from
 `npm run db:seed:local`, calendar events by pressing Fetch -- but grades and
 time sessions cannot. They record what actually happened and have no source of
 truth anywhere else.
@@ -73,16 +73,23 @@ truth anywhere else.
 npm run db:backup
 ```
 
-Writes a timestamped data-only snapshot to `backups/`, keeping the last ten.
-`backups/` is gitignored: these files contain personal data and must not be
-committed.
+Writes a timestamped data-only snapshot to `backups/local/`, keeping the last
+ten. Add `:remote` to snapshot the deployed database into `backups/remote/`
+instead. `backups/` is gitignored: these files contain personal data and must
+not be committed.
 
 ```
-npm run db:restore -- backups/<file>.sql
+npm run db:restore -- backups/local/<file>.sql
 ```
 
 Drops every table, reapplies the migrations, and reloads the snapshot. It takes
-its own backup first, so restoring the wrong file is recoverable.
+its own backup first, so restoring the wrong file is recoverable. **Stop the dev
+server before restoring locally** -- it holds the database open, and the restore
+fails partway with an error that does not say so.
+
+Restoring the deployed database needs `db:restore:remote` and an explicit
+`--yes`, because it overwrites live data that is not on this machine. A snapshot
+from the other environment is refused unless you also pass `--force`.
 
 Snapshots hold data only. The schema comes from `db/migrations`, which is the
 authoritative copy and, unlike a full dump, applies in an order SQLite accepts.

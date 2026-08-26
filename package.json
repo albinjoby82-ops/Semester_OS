@@ -18,7 +18,9 @@
     "cf-typegen": "wrangler types",
     "db:seed:generate": "node db/seed/generate.ts",
     "db:backup": "node scripts/backup.mjs",
+    "db:backup:remote": "node scripts/backup.mjs --remote",
     "db:restore": "node scripts/restore.mjs",
+    "db:restore:remote": "node scripts/restore.mjs --remote",
     "db:seed:local": "node db/seed/generate.ts && wrangler d1 execute semester-os --local --file db/seed/seed.sql",
     "icons": "node scripts/generate-icons.mjs"
   },
