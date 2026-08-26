@@ -52,11 +52,15 @@ app.use("/api/*", async (c, next) => {
 });
 
 /**
- * Refresh the subscribed calendar when the app is opened.
+ * Refresh the subscribed calendar when the app is opened. Development only.
  *
  * Locally there is no cron trigger, so without this a subscription only ever
  * updates when someone remembers to press Fetch -- the exact manual step that
- * subscribing was meant to remove.
+ * subscribing was meant to remove. Deployed, the nightly cron already does
+ * this, and a second path racing it would only add load and a way for the two
+ * to disagree. `import.meta.env.DEV` is a build-time constant, so the whole
+ * mechanism is eliminated from the production bundle rather than merely
+ * skipped at runtime.
  *
  * Three things bound the cost. An in-flight promise collapses the fan-out of a
  * single page load into one attempt. A cooldown stops a failing calendar
@@ -79,6 +83,8 @@ function scheduleLaunchRefresh(
   db: AppContext["Variables"]["db"],
   executionCtx: { waitUntil: (promise: Promise<unknown>) => void },
 ) {
+  if (!import.meta.env.DEV) return;
+
   const now = Date.now();
   if (refreshInFlight) return;
   if (
