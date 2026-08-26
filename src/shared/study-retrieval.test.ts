@@ -1,0 +1,2 @@
+import {describe,expect,it} from "vitest";import {searchStudyContext} from "./study-retrieval";
+describe("study retrieval",()=>{it("preserves question provenance and ranks it",()=>{const x=searchStudyContext([{id:"p",title:"2025 Exam",type:"past-paper",module:"EC",questions:[{id:"q2",topics:["Operational Amplifiers"],startPage:4,endPage:5,marks:25}]}],"operational amplifiers");expect(x[0]).toMatchObject({questionId:"q2",pageRange:[4,5],marks:25});});});

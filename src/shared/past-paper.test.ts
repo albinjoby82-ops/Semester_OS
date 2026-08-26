@@ -1,0 +1,2 @@
+import { describe,expect,it } from "vitest"; import { parsePastPaper } from "./past-paper";
+describe("past paper parser",()=>{it("finds questions, pages and explicit marks",()=>{const x=parsePastPaper("Question 1\nDiodes\fQ2\nOp amps (25 marks)",2);const q=x.questions[1]!;expect(x.questions.map(q=>q.label)).toEqual(["Q1","Q2"]);expect(q.startPage).toBe(2);expect(q.marks).toBe(25);});it("does not invent question structure",()=>expect(parsePastPaper("Course title\nNo questions here").questions).toHaveLength(0));});
