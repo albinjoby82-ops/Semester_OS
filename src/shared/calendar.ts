@@ -228,3 +228,37 @@ export function normaliseEvent(
     moduleId: matchModule(searchable, modules),
   };
 }
+
+/**
+ * How old an .ics import may be before a launch refresh re-fetches it.
+ *
+ * Six hours means a timetable change published overnight is picked up the
+ * first time the app is opened the next morning, while opening it repeatedly
+ * through a working day costs at most one fetch.
+ */
+export const REFRESH_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * Whether a subscribed calendar is due a re-fetch.
+ *
+ * Separated from the fetching so the decision is testable without a network
+ * or a database, and so the launch path and the cron can share one rule.
+ *
+ * A missing timestamp means nothing has ever been imported, which counts as
+ * due: that is the case where the user has a URL saved but no events, and
+ * refusing to refresh would leave them staring at an empty timetable.
+ */
+export function isRefreshDue(
+  lastSyncedAt: string | null | undefined,
+  now: number,
+  maxAgeMs: number = REFRESH_MAX_AGE_MS,
+): boolean {
+  if (!lastSyncedAt) return true;
+  const synced = Date.parse(lastSyncedAt);
+  // An unparseable timestamp is treated as due rather than never-due, so bad
+  // data fails towards a working timetable instead of a silently frozen one.
+  if (Number.isNaN(synced)) return true;
+  // A clock skew that puts the last sync in the future must not park the
+  // refresh forever, so compare on absolute distance.
+  return Math.abs(now - synced) >= maxAgeMs;
+}

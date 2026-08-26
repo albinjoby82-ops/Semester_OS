@@ -3,6 +3,7 @@ import {
   busyHoursInWindow,
   clipToWindow,
   eventsInWindow,
+  isRefreshDue,
   matchModule,
   mergeIntervals,
   minutesUntilNextEvent,
@@ -294,5 +295,44 @@ describe("normaliseEvent", () => {
       modules,
     );
     expect(result?.moduleId).toBe("math20290");
+  });
+});
+
+describe("isRefreshDue", () => {
+  const now = Date.parse("2026-08-26T09:00:00.000Z");
+  const hours = (n: number) => n * 60 * 60 * 1000;
+
+  it("is due when nothing has ever been imported", () => {
+    expect(isRefreshDue(null, now)).toBe(true);
+    expect(isRefreshDue(undefined, now)).toBe(true);
+  });
+
+  it("is not due while the last import is still fresh", () => {
+    expect(isRefreshDue("2026-08-26T05:00:00.000Z", now)).toBe(false);
+  });
+
+  it("is due once the window has elapsed", () => {
+    expect(isRefreshDue("2026-08-26T03:00:00.000Z", now)).toBe(true);
+    expect(isRefreshDue("2026-08-25T09:00:00.000Z", now)).toBe(true);
+  });
+
+  it("treats the boundary itself as due", () => {
+    expect(isRefreshDue(new Date(now - hours(6)).toISOString(), now)).toBe(true);
+  });
+
+  it("respects a caller-supplied window", () => {
+    const oneHourAgo = new Date(now - hours(1)).toISOString();
+    expect(isRefreshDue(oneHourAgo, now, hours(6))).toBe(false);
+    expect(isRefreshDue(oneHourAgo, now, hours(1))).toBe(true);
+  });
+
+  it("does not freeze on a timestamp from the future", () => {
+    // A device clock an hour fast would otherwise park the refresh until the
+    // future timestamp aged out, which could be indefinitely.
+    expect(isRefreshDue("2026-08-27T09:00:00.000Z", now)).toBe(true);
+  });
+
+  it("refreshes rather than trusting an unparseable timestamp", () => {
+    expect(isRefreshDue("not a date", now)).toBe(true);
   });
 });

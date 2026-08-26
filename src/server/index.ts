@@ -14,6 +14,7 @@ import {
   calendarRoute,
   importIcsFromUrl,
   readSubscriptionUrl,
+  refreshSubscriptionIfDue,
 } from "./routes/calendar";
 import { whatsappRoute } from "./routes/whatsapp";
 import { getAccessToken, readConfig } from "./services/google-auth";
@@ -45,6 +46,30 @@ const app = new Hono<AppContext>();
 
 app.use("/api/*", async (c, next) => {
   c.set("db", drizzle(c.env.DB, { schema }));
+  await next();
+});
+
+/**
+ * Refresh the subscribed calendar when the app is first opened.
+ *
+ * Locally there is no cron trigger, so without this a subscription only ever
+ * updates when someone remembers to press Fetch -- which is exactly the manual
+ * step subscribing was meant to remove.
+ *
+ * Guarded twice over. The module-level promise keeps it to one attempt per
+ * isolate, so a page load that fans out into a dozen API calls does not fan
+ * out into a dozen fetches of the same calendar; the staleness check inside
+ * bounds how often a fresh isolate actually reaches the network. It runs under
+ * waitUntil so nothing waits on it: a slow or unreachable calendar server must
+ * not hold up the first paint.
+ */
+let launchRefresh: Promise<unknown> | null = null;
+
+app.use("/api/*", async (c, next) => {
+  if (!launchRefresh) {
+    launchRefresh = refreshSubscriptionIfDue(c.get("db"));
+    c.executionCtx.waitUntil(launchRefresh);
+  }
   await next();
 });
 

@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import { eq, like } from "drizzle-orm";
+import { desc, eq, like } from "drizzle-orm";
 import { calendarEvents, modules, settings } from "../../../db/schema";
 import type { AppContext } from "../index";
-import { matchModule } from "../../shared/calendar";
+import { isRefreshDue, matchModule } from "../../shared/calendar";
 import { parseIcs } from "../../shared/ics";
 
 /**
@@ -122,6 +122,49 @@ export async function readSubscriptionUrl(db: Db): Promise<string | null> {
     .where(eq(settings.key, SUBSCRIPTION_KEY))
     .limit(1);
   return row?.value ?? null;
+}
+
+/** When the subscribed calendar was last imported, if it ever was. */
+async function lastImportedAt(db: Db): Promise<string | null> {
+  const [row] = await db
+    .select({ syncedAt: calendarEvents.syncedAt })
+    .from(calendarEvents)
+    .where(like(calendarEvents.googleEventId, `${IMPORT_PREFIX}%`))
+    .orderBy(desc(calendarEvents.syncedAt))
+    .limit(1);
+  return row?.syncedAt ?? null;
+}
+
+/**
+ * Re-read the subscribed calendar if it has gone stale.
+ *
+ * This is what replaces the nightly cron when the app runs locally, where no
+ * scheduled trigger fires: opening the app is the only reliable moment we get,
+ * so a timetable change is picked up then rather than never.
+ *
+ * Never throws. A refresh failing is not a reason for the request that
+ * triggered it to fail -- the previously imported events are still on screen
+ * and still correct, just older than we would like.
+ */
+export async function refreshSubscriptionIfDue(
+  db: Db,
+): Promise<"skipped" | "fresh" | "refreshed" | "failed"> {
+  const url = await readSubscriptionUrl(db);
+  if (!url) return "skipped";
+
+  if (!isRefreshDue(await lastImportedAt(db), Date.now())) return "fresh";
+
+  try {
+    const result = await importIcsFromUrl(db, url);
+    console.log("launch ics refresh complete", {
+      imported: result.imported,
+      matched: result.matched,
+    });
+    return "refreshed";
+  } catch (cause) {
+    console.error("launch ics refresh failed", cause);
+    return "failed";
+  }
 }
 
 /**
