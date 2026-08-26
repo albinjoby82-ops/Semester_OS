@@ -90,6 +90,7 @@ button { cursor: pointer; }
 .type-bar button { padding:.45rem .7rem; border:1px solid var(--color-border); border-radius:999px; background:#fff; color:var(--color-muted); font-size:.72rem; text-transform:capitalize; white-space:nowrap; }
 .type-bar button.is-active { border-color:#8ab296; background:#e5f1e7; color:#3e6c4f; }
 .resource-table { border:1px solid var(--color-border); border-radius:1rem; overflow:hidden; background:#fff; }
+.library-tabs { display:flex; gap:.35rem; overflow:auto; margin-bottom:1rem; }.library-tabs button { padding:.5rem .7rem; border:1px solid var(--color-border); border-radius:.55rem; background:#fff; color:var(--color-muted); font-size:.72rem; white-space:nowrap; }.library-tabs button.is-active { background:#e5f1e7; color:#3e6c4f; border-color:#8ab296; }.library-tabs span { margin-left:.45rem; }
 .resource-row { display:grid; grid-template-columns:2fr 1.2fr .9fr .7fr 1.5fr; gap:1rem; width:100%; padding:.9rem 1rem; border:0; border-bottom:1px solid #edf0eb; background:#fff; color:var(--color-muted); text-align:left; font-size:.75rem; }
 .resource-row:hover { background:#f7fbf7; }.resource-title { color:var(--color-fg); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .reader-overlay { position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:1rem; background:rgba(26,38,31,.45); backdrop-filter:blur(8px); }

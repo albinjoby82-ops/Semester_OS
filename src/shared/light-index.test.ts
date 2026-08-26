@@ -1,0 +1,3 @@
+import { describe, expect, it } from "vitest";
+import { validateLightIndex } from "./light-index";
+describe("light index validation",()=>{it("rejects impossible pages",()=>expect(validateLightIndex({schemaVersion:1,title:"x",topics:[{name:"bad",startPage:8,endPage:12}],keywords:[],generatedAt:"",provider:"mock"},10)).toBeNull());it("bounds topics and deduplicates keywords",()=>{const x=validateLightIndex({schemaVersion:1,title:" x ",topics:Array.from({length:30},(_,i)=>({name:`t${i}`,startPage:1,endPage:1})),keywords:["a","a",""],generatedAt:"",provider:"mock"},2)!;expect(x.topics).toHaveLength(20);expect(x.keywords).toEqual(["a"]);expect(x.title).toBe("x");});});
