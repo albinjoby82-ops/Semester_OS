@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type DriveFolder, type ResourceRow } from "../lib/api";
 import { groupByType, groupByWeek, type IndexedResource } from "../../shared/drive";
+import { addStudyTime, listMaterials, saveMaterials, studySeconds, type LocalMaterial } from "../lib/local-materials";
 
 const TYPE_LABEL: Record<string, string> = {
   slide: "Slides",
@@ -33,6 +34,25 @@ export function ModuleResources({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [groupMode, setGroupMode] = useState<"week" | "type">("week");
+  const [local, setLocal] = useState<LocalMaterial[]>([]);
+  const [openLocal, setOpenLocal] = useState<LocalMaterial | null>(null);
+  const [study, setStudy] = useState(0);
+  const [localUrl, setLocalUrl] = useState<string | null>(null);
+
+  useEffect(() => { void listMaterials(code).then(setLocal); void studySeconds(code).then(setStudy); }, [code]);
+  useEffect(() => {
+    if (!openLocal) { if (localUrl) URL.revokeObjectURL(localUrl); setLocalUrl(null); return; }
+    const url = URL.createObjectURL(openLocal.blob); setLocalUrl(url);
+    const started = Date.now();
+    return () => { const seconds = Math.round((Date.now() - started) / 1000); if (seconds > 0) { void addStudyTime(code, seconds); setStudy((v) => v + seconds); } URL.revokeObjectURL(url); };
+  }, [openLocal, code]);
+
+  const addFolder = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = [...(event.target.files ?? [])].filter((file) => file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"));
+    const now = new Date().toISOString();
+    const items = files.map((file): LocalMaterial => { const path = file.webkitRelativePath || file.name; const parts = path.split("/"); return { id: `${code}:${path}`, moduleCode: code, folder: parts.length > 1 ? (parts[parts.length - 2] ?? "Added folder") : "Added folder", name: file.name.replace(/\.pdf$/i, ""), path, blob: file, addedAt: now, secondsViewed: 0 }; });
+    await saveMaterials(items); setLocal(await listMaterials(code)); event.target.value = "";
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -81,6 +101,11 @@ export function ModuleResources({
 
   return (
     <div>
+      <div className="mb-4 rounded border border-[var(--color-border)] bg-[var(--color-bg)] p-3">
+        <div className="flex flex-wrap items-center gap-2"><strong className="text-xs">Local material</strong><label className="rounded border border-[var(--color-accent)] px-2.5 py-1 text-xs cursor-pointer">Add folder<input type="file" hidden multiple accept="application/pdf,.pdf" {...({ webkitdirectory: "", directory: "" } as React.InputHTMLAttributes<HTMLInputElement>)} onChange={(e) => void addFolder(e)} /></label><span className="text-[11px] text-[var(--color-muted)]">{local.length} PDFs · {Math.round(study / 60)} min studied</span></div>
+        <p className="mt-1 text-[11px] text-[var(--color-muted)]">Choose a folder inside this module’s folder. Files stay in this browser on this device.</p>
+        {local.length > 0 && <div className="mt-2 grid gap-1">{local.map((item) => <button key={item.id} onClick={() => setOpenLocal(item)} className="text-left text-xs text-[var(--color-accent)] hover:underline">{item.folder} / {item.name}</button>)}</div>}
+      </div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
         {driveFolderId ? (
           <>
@@ -203,6 +228,7 @@ export function ModuleResources({
           ))}
         </ul>
       )}
+      {openLocal && localUrl && <div className="reader-overlay"><div className="reader-shell"><header><strong>{openLocal.name}</strong><button onClick={() => setOpenLocal(null)}>Close</button></header><main className="reader-local"><iframe title={openLocal.name} src={localUrl} /></main></div></div>}
     </div>
   );
 }

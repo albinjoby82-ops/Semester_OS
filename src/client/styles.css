@@ -69,6 +69,8 @@ button { cursor: pointer; }
 .divide-y.divide-\[var\(--color-border\)\] { border-color: #edf0eb; }
 
 .next-action { position: relative; overflow: hidden; margin: 0 0 2.55rem; padding: 1.7rem; border: 1px solid #d7e6da; border-radius: 1.22rem; background: linear-gradient(120deg, #f8fcf8, #eef6ef); box-shadow: 0 13px 31px rgba(61, 94, 69, .06); }
+.reader-local { height: calc(100vh - 4rem); padding: 0; }
+.reader-local iframe { width: 100%; height: 100%; border: 0; background: #222; }
 .next-action::after { position: absolute; right: -3rem; bottom: -6rem; width: 13rem; height: 13rem; border-radius: 999px; background: rgba(178, 209, 183, .22); content: ""; }
 .next-action > * { position: relative; z-index: 1; }
 .next-action .action-label { color: #568066; font-size: .7rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
